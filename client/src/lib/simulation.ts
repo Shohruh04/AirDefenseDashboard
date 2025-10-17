@@ -25,6 +25,29 @@ export interface Alert {
   };
 }
 
+export interface Missile {
+  id: string;
+  startPosition: {
+    lat: number;
+    lng: number;
+    altitude: number;
+  };
+  targetPosition: {
+    lat: number;
+    lng: number;
+    altitude: number;
+  };
+  currentPosition: {
+    lat: number;
+    lng: number;
+    altitude: number;
+  };
+  targetId: string;
+  launchTime: number;
+  speed: number; // km/h
+  active: boolean;
+}
+
 const AIRCRAFT_TYPES = ['Commercial', 'Military', 'Private', 'Unknown'] as const;
 const CALLSIGN_PREFIXES = ['AIR', 'SKY', 'FLT', 'UAV', 'MIL', 'PVT'];
 
