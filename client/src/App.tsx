@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
+import { ThemeProvider } from 'next-themes';
 import Layout from './components/Layout';
 import { useSimulation } from './lib/stores/useSimulation';
 import { useSettings } from './lib/stores/useSettings';
@@ -21,11 +22,13 @@ function App() {
   }, []);
 
   return (
-    <Router>
-      <div className="w-full h-full bg-background text-foreground">
-        <Layout />
-      </div>
-    </Router>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <Router>
+        <div className="w-full h-full bg-background text-foreground">
+          <Layout />
+        </div>
+      </Router>
+    </ThemeProvider>
   );
 }
 
