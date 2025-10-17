@@ -1,0 +1,64 @@
+I’m building a Computer Science diploma project called “3D Air Defense Simulation Dashboard.”
+
+Goal: Create an educational, fully simulated dashboard for visualizing air defense system data — no real or government sources, only random/generated data.
+
+Use **React.js**, **Three.js**, **Leaflet.js**, **Chart.js**, and **Tailwind CSS**.
+
+🧩 Project Structure:
+1. **App Layout**
+   - Sidebar + top navbar + main content.
+   - Tabs: “2D Map”, “3D Simulation”, “System Status”, “Analytics”, “Alerts”, “Settings”.
+   - Navbar title: “3D Air Defense Simulation Dashboard (Educational Project)”.
+
+2. **2D Map View (Leaflet.js)**
+   - Show radar zones (short, medium, long).
+   - Simulated aircraft markers updating every few seconds.
+   - Randomized tooltips (ID, speed, altitude).
+
+3. **3D Simulation (Three.js)**
+   - 3D scene with Earth or flat terrain background.
+   - Moving aircraft models (simple shapes or models).
+   - Radar sweep animation using Three.js geometry + rotation.
+   - Range spheres or cones for missile systems.
+   - Ambient lighting, camera orbit controls, and smooth animation loop.
+   - Allow toggle between “Day Mode” and “Night Mode” lighting.
+
+4. **System Status**
+   - Cards showing radar uptime, number of aircraft, simulated threat level, and system readiness.
+   - Use Zustand or Context for state.
+
+5. **Analytics**
+   - Chart.js graphs:
+     - Aircraft detections per minute.
+     - Altitude distribution.
+     - System load / readiness over time.
+
+6. **Alerts Log**
+   - Table listing simulated alerts like:
+     - “Target detected: 48°N 71°E — Alt: 7500m — Type: Unknown”
+   - Random generation every few seconds.
+
+7. **Settings**
+   - Buttons to start/stop simulation.
+   - Slider to adjust data refresh rate.
+   - Toggle between 2D/3D view modes.
+
+8. **Simulation Data (simulation.js)**
+   - Generate random aircraft data: ID, position, altitude, speed.
+   - Randomly trigger “alert” events.
+   - Handle updates every few seconds.
+   - Store in global state (Zustand).
+
+9. **About Page**
+   - Clearly state:
+     > “This project is a simulated educational dashboard. All visuals and data are artificially generated and do not represent real systems.”
+
+10. **Tech Stack**
+    - React + Vite
+    - Tailwind CSS
+    - Leaflet.js (for 2D map)
+    - Three.js (for 3D visualization)
+    - Chart.js (for analytics)
+    - Zustand (for state management)
+
+Expected output: A working React dashboard that visualizes simulated air defense data both in 2D and 3D, entirely educational and safe for public presentation.
