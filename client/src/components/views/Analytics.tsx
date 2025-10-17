@@ -1,9 +1,9 @@
-import React, { useEffect, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
-import { Download, FileText } from 'lucide-react';
-import { useSimulation } from '../../lib/stores/useSimulation';
-import { exportToCSV, exportAnalyticsToPDF } from '../../lib/exportUtils';
+import React, { useEffect, useRef } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Button } from "../ui/button";
+import { Download, FileText } from "lucide-react";
+import { useSimulation } from "../../lib/stores/useSimulation";
+import { exportToCSV, exportAnalyticsToPDF } from "../../lib/exportUtils";
 
 // Chart.js types
 declare global {
@@ -17,7 +17,7 @@ const Analytics: React.FC = () => {
   const detectionChartRef = useRef<HTMLCanvasElement>(null);
   const altitudeChartRef = useRef<HTMLCanvasElement>(null);
   const systemLoadChartRef = useRef<HTMLCanvasElement>(null);
-  
+
   const detectionChartInstance = useRef<any>(null);
   const altitudeChartInstance = useRef<any>(null);
   const systemLoadChartInstance = useRef<any>(null);
@@ -29,125 +29,133 @@ const Analytics: React.FC = () => {
     // Detection per minute chart
     if (detectionChartRef.current && !detectionChartInstance.current) {
       detectionChartInstance.current = new Chart(detectionChartRef.current, {
-        type: 'line',
+        type: "line",
         data: {
           labels: Array.from({ length: 20 }, (_, i) => `${i + 1}m`),
-          datasets: [{
-            label: 'Detections per Minute',
-            data: analytics.detectionsPerMinute,
-            borderColor: '#3b82f6',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            fill: true,
-            tension: 0.4
-          }]
+          datasets: [
+            {
+              label: "Detections per Minute",
+              data: analytics.detectionsPerMinute,
+              borderColor: "#3b82f6",
+              backgroundColor: "rgba(59, 130, 246, 0.1)",
+              fill: true,
+              tension: 0.4,
+            },
+          ],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
             legend: {
-              display: false
-            }
+              display: false,
+            },
           },
           scales: {
             y: {
               beginAtZero: true,
               grid: {
-                color: 'rgba(0, 0, 0, 0.1)'
-              }
+                color: "rgba(0, 0, 0, 0.1)",
+              },
             },
             x: {
               grid: {
-                color: 'rgba(0, 0, 0, 0.1)'
-              }
-            }
-          }
-        }
+                color: "rgba(0, 0, 0, 0.1)",
+              },
+            },
+          },
+        },
       });
     }
 
     // Altitude distribution chart
     if (altitudeChartRef.current && !altitudeChartInstance.current) {
       altitudeChartInstance.current = new Chart(altitudeChartRef.current, {
-        type: 'bar',
+        type: "bar",
         data: {
-          labels: analytics.altitudeDistribution.map(item => `${item.altitude}m`),
-          datasets: [{
-            label: 'Aircraft Count',
-            data: analytics.altitudeDistribution.map(item => item.count),
-            backgroundColor: [
-              '#ef4444',
-              '#f59e0b',
-              '#10b981',
-              '#3b82f6',
-              '#8b5cf6',
-              '#ec4899'
-            ]
-          }]
+          labels: analytics.altitudeDistribution.map(
+            (item) => `${item.altitude}m`
+          ),
+          datasets: [
+            {
+              label: "Aircraft Count",
+              data: analytics.altitudeDistribution.map((item) => item.count),
+              backgroundColor: [
+                "#ef4444",
+                "#f59e0b",
+                "#10b981",
+                "#3b82f6",
+                "#8b5cf6",
+                "#ec4899",
+              ],
+            },
+          ],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
             legend: {
-              display: false
-            }
+              display: false,
+            },
           },
           scales: {
             y: {
               beginAtZero: true,
               grid: {
-                color: 'rgba(0, 0, 0, 0.1)'
-              }
+                color: "rgba(0, 0, 0, 0.1)",
+              },
             },
             x: {
               grid: {
-                color: 'rgba(0, 0, 0, 0.1)'
-              }
-            }
-          }
-        }
+                color: "rgba(0, 0, 0, 0.1)",
+              },
+            },
+          },
+        },
       });
     }
 
     // System load chart
     if (systemLoadChartRef.current && !systemLoadChartInstance.current) {
       systemLoadChartInstance.current = new Chart(systemLoadChartRef.current, {
-        type: 'line',
+        type: "line",
         data: {
           labels: Array.from({ length: 20 }, (_, i) => `${i + 1}m`),
-          datasets: [{
-            label: 'System Load %',
-            data: analytics.systemLoad,
-            borderColor: '#f59e0b',
-            backgroundColor: 'rgba(245, 158, 11, 0.1)',
-            fill: true,
-            tension: 0.4
-          }]
+          datasets: [
+            {
+              label: "System Load %",
+              data: analytics.systemLoad,
+              borderColor: "#f59e0b",
+              backgroundColor: "rgba(245, 158, 11, 0.1)",
+              fill: true,
+              tension: 0.4,
+            },
+          ],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
             legend: {
-              display: false
-            }
+              display: false,
+            },
           },
           scales: {
             y: {
               beginAtZero: true,
               max: 100,
               grid: {
-                color: 'rgba(0, 0, 0, 0.1)'
-              }
+                color: "rgba(0, 0, 0, 0.1)",
+              },
             },
             x: {
               grid: {
-                color: 'rgba(0, 0, 0, 0.1)'
-              }
-            }
-          }
-        }
+                color: "rgba(0, 0, 0, 0.1)",
+              },
+            },
+          },
+        },
       });
     }
 
@@ -170,17 +178,20 @@ const Analytics: React.FC = () => {
   useEffect(() => {
     // Update charts when data changes
     if (detectionChartInstance.current) {
-      detectionChartInstance.current.data.datasets[0].data = analytics.detectionsPerMinute;
+      detectionChartInstance.current.data.datasets[0].data =
+        analytics.detectionsPerMinute;
       detectionChartInstance.current.update();
     }
 
     if (altitudeChartInstance.current) {
-      altitudeChartInstance.current.data.datasets[0].data = analytics.altitudeDistribution.map(item => item.count);
+      altitudeChartInstance.current.data.datasets[0].data =
+        analytics.altitudeDistribution.map((item) => item.count);
       altitudeChartInstance.current.update();
     }
 
     if (systemLoadChartInstance.current) {
-      systemLoadChartInstance.current.data.datasets[0].data = analytics.systemLoad;
+      systemLoadChartInstance.current.data.datasets[0].data =
+        analytics.systemLoad;
       systemLoadChartInstance.current.update();
     }
   }, [analytics]);
@@ -188,22 +199,22 @@ const Analytics: React.FC = () => {
   const handleExportCSV = () => {
     const exportData = [
       ...analytics.detectionsPerMinute.map((value, index) => ({
-        Metric: 'Detections per Minute',
+        Metric: "Detections per Minute",
         TimePoint: `${index + 1}m`,
         Value: value,
       })),
       ...analytics.systemLoad.map((value, index) => ({
-        Metric: 'System Load %',
+        Metric: "System Load %",
         TimePoint: `${index + 1}m`,
         Value: value,
       })),
-      ...analytics.altitudeDistribution.map(item => ({
-        Metric: 'Altitude Distribution',
+      ...analytics.altitudeDistribution.map((item) => ({
+        Metric: "Altitude Distribution",
         Altitude: item.altitude,
         Count: item.count,
       })),
     ];
-    exportToCSV(exportData, 'air_defense_analytics');
+    exportToCSV(exportData, "air_defense_analytics");
   };
 
   const handleExportPDF = () => {
@@ -220,7 +231,9 @@ const Analytics: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 flex justify-between items-start">
           <div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">Analytics Dashboard</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-2">
+              Analytics Dashboard
+            </h2>
             <p className="text-muted-foreground">
               Performance metrics and tracking statistics
             </p>
@@ -253,24 +266,32 @@ const Analytics: React.FC = () => {
             <CardContent className="p-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">
-                  {analytics.detectionsPerMinute[analytics.detectionsPerMinute.length - 1]}
+                  {
+                    analytics.detectionsPerMinute[
+                      analytics.detectionsPerMinute.length - 1
+                    ]
+                  }
                 </div>
-                <p className="text-sm text-muted-foreground">Current Detections/min</p>
+                <p className="text-sm text-muted-foreground">
+                  Current Detections/min
+                </p>
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600">
-                  {aircraft.reduce((sum, ac) => sum + ac.position.altitude, 0) / aircraft.length || 0}m
+                  {aircraft.reduce((sum, ac) => sum + ac.position.altitude, 0) /
+                    aircraft.length || 0}
+                  m
                 </div>
                 <p className="text-sm text-muted-foreground">Avg Altitude</p>
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
@@ -281,14 +302,17 @@ const Analytics: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-purple-600">
-                  {aircraft.reduce((sum, ac) => sum + ac.speed, 0) / aircraft.length || 0}
+                  {aircraft.reduce((sum, ac) => sum + ac.speed, 0) /
+                    aircraft.length || 0}
                 </div>
-                <p className="text-sm text-muted-foreground">Avg Speed (km/h)</p>
+                <p className="text-sm text-muted-foreground">
+                  Avg Speed (km/h)
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -338,24 +362,32 @@ const Analytics: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {['Commercial', 'Military', 'Private', 'Unknown'].map(type => {
-                  const count = aircraft.filter(ac => ac.type === type).length;
-                  const percentage = aircraft.length > 0 ? (count / aircraft.length) * 100 : 0;
-                  return (
-                    <div key={type} className="flex justify-between items-center">
-                      <span className="text-sm">{type}</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-2 bg-muted rounded-full">
-                          <div 
-                            className="h-full bg-primary rounded-full"
-                            style={{ width: `${percentage}%` }}
-                          />
+                {["Commercial", "Military", "Private", "Unknown"].map(
+                  (type) => {
+                    const count = aircraft.filter(
+                      (ac) => ac.type === type
+                    ).length;
+                    const percentage =
+                      aircraft.length > 0 ? (count / aircraft.length) * 100 : 0;
+                    return (
+                      <div
+                        key={type}
+                        className="flex justify-between items-center"
+                      >
+                        <span className="text-sm">{type}</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-20 h-2 bg-muted rounded-full">
+                            <div
+                              className="h-full bg-primary rounded-full"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                          <span className="text-sm font-mono w-8">{count}</span>
                         </div>
-                        <span className="text-sm font-mono w-8">{count}</span>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  }
+                )}
               </div>
             </CardContent>
           </Card>

@@ -1,7 +1,7 @@
-import React from 'react';
-import { Moon, Sun } from 'lucide-react';
-import { useTheme } from 'next-themes';
-import { Button } from './ui/button';
+import React from "react";
+import { Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
+import { Button } from "./ui/button";
 
 const ThemeToggle: React.FC = () => {
   const { theme, setTheme } = useTheme();
@@ -10,7 +10,7 @@ const ThemeToggle: React.FC = () => {
     <Button
       variant="outline"
       size="sm"
-      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
       className="relative"
     >
       <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />

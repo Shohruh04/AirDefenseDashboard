@@ -1,11 +1,11 @@
-import React from 'react';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Menu, Shield, WifiOff, Wifi } from 'lucide-react';
-import { useSimulation } from '../lib/stores/useSimulation';
-import { useSettings } from '../lib/stores/useSettings';
-import ThemeToggle from './ThemeToggle';
-import type { TabType } from './Layout';
+import React from "react";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
+import { Menu, Shield, WifiOff, Wifi } from "lucide-react";
+import { useSimulation } from "../lib/stores/useSimulation";
+import { useSettings } from "../lib/stores/useSettings";
+import ThemeToggle from "./ThemeToggle";
+import type { TabType } from "./Layout";
 
 interface NavbarProps {
   activeTab: TabType;
@@ -13,13 +13,13 @@ interface NavbarProps {
 }
 
 const tabTitles: Record<TabType, string> = {
-  '2D_MAP': '2D Map View',
-  '3D_SIMULATION': '3D Air Defense Simulation',
-  'SYSTEM_STATUS': 'System Status',
-  'ANALYTICS': 'Analytics Dashboard',
-  'ALERTS': 'Alerts & Events Log',
-  'SETTINGS': 'System Settings',
-  'ABOUT': 'About This Project'
+  "2D_MAP": "2D Map View",
+  "3D_SIMULATION": "3D Air Defense Simulation",
+  SYSTEM_STATUS: "System Status",
+  ANALYTICS: "Analytics Dashboard",
+  ALERTS: "Alerts & Events Log",
+  SETTINGS: "System Settings",
+  ABOUT: "About This Project",
 };
 
 const Navbar: React.FC<NavbarProps> = ({ activeTab, onToggleSidebar }) => {
@@ -38,7 +38,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onToggleSidebar }) => {
           >
             <Menu className="h-4 w-4" />
           </Button>
-          
+
           <div className="flex items-center gap-3">
             <Shield className="h-6 w-6 text-primary" />
             <div>
@@ -62,7 +62,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onToggleSidebar }) => {
                 <WifiOff className="h-4 w-4 text-red-500" />
               )}
               <span className="text-sm">
-                {isRunning && isSimulationRunning ? 'Online' : 'Offline'}
+                {isRunning && isSimulationRunning ? "Online" : "Offline"}
               </span>
             </div>
 
@@ -71,11 +71,13 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onToggleSidebar }) => {
               <span className="font-mono">{aircraft.length}</span>
             </Badge>
 
-            <Badge 
+            <Badge
               variant={
-                systemStatus.threatLevel === 'HIGH' ? 'destructive' :
-                systemStatus.threatLevel === 'MEDIUM' ? 'default' :
-                'secondary'
+                systemStatus.threatLevel === "HIGH"
+                  ? "destructive"
+                  : systemStatus.threatLevel === "MEDIUM"
+                  ? "default"
+                  : "secondary"
               }
             >
               {systemStatus.threatLevel}
@@ -83,7 +85,9 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onToggleSidebar }) => {
 
             <Badge variant="outline" className="gap-1">
               <span className="text-xs">Uptime:</span>
-              <span className="font-mono">{systemStatus.radarUptime.toFixed(1)}%</span>
+              <span className="font-mono">
+                {systemStatus.radarUptime.toFixed(1)}%
+              </span>
             </Badge>
           </div>
 

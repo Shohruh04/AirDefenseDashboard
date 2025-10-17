@@ -1,19 +1,19 @@
-import React from 'react';
-import { Button } from './ui/button';
-import { cn } from '../lib/utils';
-import { 
-  Map, 
-  Box, 
-  Activity, 
-  BarChart3, 
-  AlertTriangle, 
-  Settings, 
+import React from "react";
+import { Button } from "./ui/button";
+import { cn } from "../lib/utils";
+import {
+  Map,
+  Box,
+  Activity,
+  BarChart3,
+  AlertTriangle,
+  Settings,
   Info,
   ChevronLeft,
   ChevronRight,
-  Radar
-} from 'lucide-react';
-import type { TabType } from './Layout';
+  Radar,
+} from "lucide-react";
+import type { TabType } from "./Layout";
 
 interface SidebarProps {
   activeTab: TabType;
@@ -23,33 +23,37 @@ interface SidebarProps {
 }
 
 const menuItems = [
-  { id: '2D_MAP', label: '2D Map', icon: Map },
-  { id: '3D_SIMULATION', label: '3D Simulation', icon: Box },
-  { id: 'SYSTEM_STATUS', label: 'System Status', icon: Activity },
-  { id: 'ANALYTICS', label: 'Analytics', icon: BarChart3 },
-  { id: 'ALERTS', label: 'Alerts', icon: AlertTriangle },
-  { id: 'SETTINGS', label: 'Settings', icon: Settings },
-  { id: 'ABOUT', label: 'About', icon: Info },
+  { id: "2D_MAP", label: "2D Map", icon: Map },
+  { id: "3D_SIMULATION", label: "3D Simulation", icon: Box },
+  { id: "SYSTEM_STATUS", label: "System Status", icon: Activity },
+  { id: "ANALYTICS", label: "Analytics", icon: BarChart3 },
+  { id: "ALERTS", label: "Alerts", icon: AlertTriangle },
+  { id: "SETTINGS", label: "Settings", icon: Settings },
+  { id: "ABOUT", label: "About", icon: Info },
 ] as const;
 
 const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onTabChange,
   collapsed,
-  onToggleCollapse
+  onToggleCollapse,
 }) => {
   return (
-    <div className={cn(
-      "bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col",
-      collapsed ? "w-16" : "w-64"
-    )}>
+    <div
+      className={cn(
+        "bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col",
+        collapsed ? "w-16" : "w-64"
+      )}
+    >
       {/* Header */}
       <div className="p-4 border-b border-sidebar-border">
         <div className="flex items-center justify-between">
           {!collapsed && (
             <div className="flex items-center gap-2">
               <Radar className="h-6 w-6 text-primary" />
-              <span className="font-semibold text-sidebar-foreground">Air Defense</span>
+              <span className="font-semibold text-sidebar-foreground">
+                Air Defense
+              </span>
             </div>
           )}
           <Button
@@ -86,9 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => onTabChange(item.id as TabType)}
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                {!collapsed && (
-                  <span className="truncate">{item.label}</span>
-                )}
+                {!collapsed && <span className="truncate">{item.label}</span>}
               </Button>
             );
           })}

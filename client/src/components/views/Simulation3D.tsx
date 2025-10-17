@@ -1,24 +1,25 @@
-import React, { Suspense, useState, useEffect } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Stars } from '@react-three/drei';
-import { useSettings } from '../../lib/stores/useSettings';
-import AircraftModel from '../three/AircraftModel';
-import RadarSweep from '../three/RadarSweep';
-import RadarParticles from '../three/RadarParticles';
-import MissileModel from '../three/MissileModel';
-import Terrain from '../three/Terrain';
-import RangeIndicator from '../three/RangeIndicator';
-import { Badge } from '../ui/badge';
-import { Button } from '../ui/button';
-import { Card, CardContent } from '../ui/card';
-import { Sun, Moon, AlertCircle } from 'lucide-react';
-import { useSimulation } from '../../lib/stores/useSimulation';
+import React, { Suspense, useState, useEffect } from "react";
+import { Canvas } from "@react-three/fiber";
+import { OrbitControls, PerspectiveCamera, Stars } from "@react-three/drei";
+import { useSettings } from "../../lib/stores/useSettings";
+import AircraftModel from "../three/AircraftModel";
+import RadarSweep from "../three/RadarSweep";
+import RadarParticles from "../three/RadarParticles";
+import MissileModel from "../three/MissileModel";
+import Terrain from "../three/Terrain";
+import RangeIndicator from "../three/RangeIndicator";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import { Card, CardContent } from "../ui/card";
+import { Sun, Moon, AlertCircle } from "lucide-react";
+import { useSimulation } from "../../lib/stores/useSimulation";
 
 // Check if WebGL is available
 const checkWebGLSupport = (): boolean => {
   try {
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    const canvas = document.createElement("canvas");
+    const gl =
+      canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
     return !!gl;
   } catch (e) {
     return false;
@@ -49,9 +50,13 @@ const Simulation3D: React.FC = () => {
               <AlertCircle className="h-8 w-8 text-yellow-500 mt-1 shrink-0" />
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-xl font-semibold mb-2">3D Visualization Unavailable</h3>
+                  <h3 className="text-xl font-semibold mb-2">
+                    3D Visualization Unavailable
+                  </h3>
                   <p className="text-muted-foreground">
-                    WebGL is not available in this environment. The 3D simulation requires WebGL support for hardware-accelerated graphics.
+                    WebGL is not available in this environment. The 3D
+                    simulation requires WebGL support for hardware-accelerated
+                    graphics.
                   </p>
                 </div>
                 <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
@@ -59,8 +64,9 @@ const Simulation3D: React.FC = () => {
                     Alternative: Use the 2D Map View
                   </p>
                   <p className="text-sm text-blue-700 dark:text-blue-300">
-                    You can still visualize aircraft tracking and radar zones using the 2D Map view from the sidebar.
-                    This provides all the simulation data in an interactive map format.
+                    You can still visualize aircraft tracking and radar zones
+                    using the 2D Map view from the sidebar. This provides all
+                    the simulation data in an interactive map format.
                   </p>
                 </div>
                 <div className="pt-4">
@@ -90,8 +96,12 @@ const Simulation3D: React.FC = () => {
             onClick={toggleDayMode}
             className="bg-background/80 backdrop-blur"
           >
-            {isDayMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-            {isDayMode ? 'Night' : 'Day'}
+            {isDayMode ? (
+              <Moon className="h-4 w-4" />
+            ) : (
+              <Sun className="h-4 w-4" />
+            )}
+            {isDayMode ? "Night" : "Day"}
           </Button>
         </div>
       </div>
@@ -105,19 +115,19 @@ const Simulation3D: React.FC = () => {
       </div>
 
       {/* 3D Canvas */}
-      <Canvas 
+      <Canvas
         className="w-full h-full"
-        gl={{ 
-          antialias: false, 
+        gl={{
+          antialias: false,
           alpha: false,
-          powerPreference: 'default',
-          failIfMajorPerformanceCaveat: false
+          powerPreference: "default",
+          failIfMajorPerformanceCaveat: false,
         }}
         onCreated={(state) => {
-          state.gl.setClearColor('#87CEEB');
+          state.gl.setClearColor("#87CEEB");
         }}
         onError={(error) => {
-          console.error('WebGL Error:', error);
+          console.error("WebGL Error:", error);
           setWebglError(true);
         }}
       >
@@ -128,7 +138,7 @@ const Simulation3D: React.FC = () => {
           near={0.1}
           far={2000}
         />
-        
+
         <OrbitControls
           enablePan={true}
           enableZoom={true}
@@ -169,10 +179,10 @@ const Simulation3D: React.FC = () => {
 
         {/* Background */}
         {isDayMode ? (
-          <color attach="background" args={['#87CEEB']} />
+          <color attach="background" args={["#87CEEB"]} />
         ) : (
           <>
-            <color attach="background" args={['#000011']} />
+            <color attach="background" args={["#000011"]} />
             <Stars
               radius={300}
               depth={60}
@@ -201,18 +211,12 @@ const Simulation3D: React.FC = () => {
 
           {/* Aircraft */}
           {aircraft.map((ac) => (
-            <AircraftModel
-              key={ac.id}
-              aircraft={ac}
-            />
+            <AircraftModel key={ac.id} aircraft={ac} />
           ))}
 
           {/* Missiles */}
           {missiles.map((missile) => (
-            <MissileModel
-              key={missile.id}
-              missile={missile}
-            />
+            <MissileModel key={missile.id} missile={missile} />
           ))}
         </Suspense>
       </Canvas>

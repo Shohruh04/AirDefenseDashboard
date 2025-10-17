@@ -1,40 +1,41 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
-import { Slider } from '../ui/slider';
-import { Switch } from '../ui/switch';
-import { Label } from '../ui/label';
-import { Badge } from '../ui/badge';
-import { 
-  Play, 
-  Pause, 
-  Settings as SettingsIcon, 
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Button } from "../ui/button";
+import { Slider } from "../ui/slider";
+import { Switch } from "../ui/switch";
+import { Label } from "../ui/label";
+import { Badge } from "../ui/badge";
+import {
+  Play,
+  Pause,
+  Settings as SettingsIcon,
   RefreshCw,
   Monitor,
   Sun,
   Moon,
   Info,
   SkipBack,
-  Rewind
-} from 'lucide-react';
-import { useSettings } from '../../lib/stores/useSettings';
-import { useSimulation } from '../../lib/stores/useSimulation';
-import { usePlayback } from '../../lib/stores/usePlayback';
+  Rewind,
+} from "lucide-react";
+import { useSettings } from "../../lib/stores/useSettings";
+import { useSimulation } from "../../lib/stores/useSimulation";
+import { usePlayback } from "../../lib/stores/usePlayback";
 
 const Settings: React.FC = () => {
-  const { 
-    isSimulationRunning, 
-    refreshRate, 
-    viewMode, 
+  const {
+    isSimulationRunning,
+    refreshRate,
+    viewMode,
     isDayMode,
-    toggleSimulation, 
-    setRefreshRate, 
-    setViewMode, 
-    toggleDayMode 
+    toggleSimulation,
+    setRefreshRate,
+    setViewMode,
+    toggleDayMode,
   } = useSettings();
-  
+
   const { startSimulation, stopSimulation, isRunning } = useSimulation();
-  const { isPaused, isRewinding, history, togglePause, rewind, clearHistory } = usePlayback();
+  const { isPaused, isRewinding, history, togglePause, rewind, clearHistory } =
+    usePlayback();
 
   const handleToggleSimulation = () => {
     toggleSimulation();
@@ -53,7 +54,9 @@ const Settings: React.FC = () => {
     <div className="w-full h-full p-6 overflow-y-auto">
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-foreground mb-2">System Settings</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-2">
+            System Settings
+          </h2>
           <p className="text-muted-foreground">
             Configure simulation parameters and display preferences
           </p>
@@ -70,17 +73,19 @@ const Settings: React.FC = () => {
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <Label className="text-base font-medium">Simulation Status</Label>
+                <Label className="text-base font-medium">
+                  Simulation Status
+                </Label>
                 <p className="text-sm text-muted-foreground">
                   Control the main simulation engine
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <Badge 
+                <Badge
                   variant={isRunning ? "default" : "secondary"}
                   className="px-3 py-1"
                 >
-                  {isRunning ? 'Running' : 'Stopped'}
+                  {isRunning ? "Running" : "Stopped"}
                 </Badge>
                 <Button
                   onClick={handleToggleSimulation}
@@ -107,7 +112,9 @@ const Settings: React.FC = () => {
                 <Label className="text-base font-medium">
                   Data Refresh Rate: {refreshRate}s
                 </Label>
-                <Badge variant="outline">{refreshRate === 1 ? 'Real-time' : 'Standard'}</Badge>
+                <Badge variant="outline">
+                  {refreshRate === 1 ? "Real-time" : "Standard"}
+                </Badge>
               </div>
               <p className="text-sm text-muted-foreground">
                 How frequently simulation data is updated (1-10 seconds)
@@ -141,22 +148,24 @@ const Settings: React.FC = () => {
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <Label className="text-base font-medium">Primary View Mode</Label>
+                <Label className="text-base font-medium">
+                  Primary View Mode
+                </Label>
                 <p className="text-sm text-muted-foreground">
                   Choose between 2D map or 3D simulation view
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <Button
-                  variant={viewMode === '2D' ? 'default' : 'outline'}
-                  onClick={() => setViewMode('2D')}
+                  variant={viewMode === "2D" ? "default" : "outline"}
+                  onClick={() => setViewMode("2D")}
                   size="sm"
                 >
                   2D Map
                 </Button>
                 <Button
-                  variant={viewMode === '3D' ? 'default' : 'outline'}
-                  onClick={() => setViewMode('3D')}
+                  variant={viewMode === "3D" ? "default" : "outline"}
+                  onClick={() => setViewMode("3D")}
                   size="sm"
                 >
                   3D View
@@ -166,7 +175,9 @@ const Settings: React.FC = () => {
 
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <Label className="text-base font-medium">3D Scene Lighting</Label>
+                <Label className="text-base font-medium">
+                  3D Scene Lighting
+                </Label>
                 <p className="text-sm text-muted-foreground">
                   Toggle between day and night mode for 3D visualization
                 </p>
@@ -174,14 +185,11 @@ const Settings: React.FC = () => {
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
                   <Sun className="h-4 w-4 text-yellow-500" />
-                  <Switch
-                    checked={isDayMode}
-                    onCheckedChange={toggleDayMode}
-                  />
+                  <Switch checked={isDayMode} onCheckedChange={toggleDayMode} />
                   <Moon className="h-4 w-4 text-blue-500" />
                 </div>
                 <Badge variant="outline">
-                  {isDayMode ? 'Day Mode' : 'Night Mode'}
+                  {isDayMode ? "Day Mode" : "Night Mode"}
                 </Badge>
               </div>
             </div>
@@ -229,7 +237,9 @@ const Settings: React.FC = () => {
                   </div>
                   <div className="flex justify-between">
                     <span>Update Interval:</span>
-                    <span className="text-muted-foreground">{refreshRate}s</span>
+                    <span className="text-muted-foreground">
+                      {refreshRate}s
+                    </span>
                   </div>
                 </div>
               </div>
@@ -249,7 +259,9 @@ const Settings: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-base font-medium">Simulation Playback</Label>
+                  <Label className="text-base font-medium">
+                    Simulation Playback
+                  </Label>
                   <p className="text-sm text-muted-foreground">
                     Pause and rewind through simulation history
                   </p>
@@ -314,21 +326,21 @@ const Settings: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="flex gap-4">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="flex items-center gap-2"
                 onClick={() => {
                   setRefreshRate(2);
-                  setViewMode('3D');
+                  setViewMode("3D");
                   clearHistory();
                 }}
               >
                 <RefreshCw className="h-4 w-4" />
                 Reset to Defaults
               </Button>
-              
-              <Button 
-                variant="outline" 
+
+              <Button
+                variant="outline"
                 className="flex items-center gap-2"
                 onClick={() => {
                   stopSimulation();
@@ -353,8 +365,10 @@ const Settings: React.FC = () => {
                   Educational Simulation Settings
                 </p>
                 <p className="text-blue-700 dark:text-blue-300">
-                  This is a simulated educational environment. All settings control artificially generated data 
-                  and do not affect real air defense systems. The simulation is designed for learning purposes only.
+                  This is a simulated educational environment. All settings
+                  control artificially generated data and do not affect real air
+                  defense systems. The simulation is designed for learning
+                  purposes only.
                 </p>
               </div>
             </div>
