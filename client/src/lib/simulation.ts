@@ -1,0 +1,151 @@
+export interface Aircraft {
+  id: string;
+  position: {
+    lat: number;
+    lng: number;
+    altitude: number; // in meters
+  };
+  speed: number; // km/h
+  heading: number; // degrees
+  type: 'Commercial' | 'Military' | 'Private' | 'Unknown';
+  callsign: string;
+  lastUpdate: number;
+}
+
+export interface Alert {
+  id: string;
+  timestamp: number;
+  type: 'DETECTION' | 'THREAT' | 'SYSTEM' | 'INFO';
+  message: string;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH';
+  position?: {
+    lat: number;
+    lng: number;
+  };
+}
+
+const AIRCRAFT_TYPES = ['Commercial', 'Military', 'Private', 'Unknown'] as const;
+const CALLSIGN_PREFIXES = ['AIR', 'SKY', 'FLT', 'UAV', 'MIL', 'PVT'];
+
+export function generateRandomAircraft(): Aircraft {
+  const id = `AC${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+  const type = AIRCRAFT_TYPES[Math.floor(Math.random() * AIRCRAFT_TYPES.length)];
+  const prefix = CALLSIGN_PREFIXES[Math.floor(Math.random() * CALLSIGN_PREFIXES.length)];
+  const number = Math.floor(Math.random() * 999) + 100;
+  
+  // Generate position within European airspace (rough bounds)
+  const lat = Math.random() * 35 + 35; // 35-70 degrees North
+  const lng = Math.random() * 50 - 10; // -10 to 40 degrees East
+  
+  return {
+    id,
+    position: {
+      lat,
+      lng,
+      altitude: Math.floor(Math.random() * 12000) + 1000, // 1000-13000m
+    },
+    speed: Math.floor(Math.random() * 600) + 200, // 200-800 km/h
+    heading: Math.floor(Math.random() * 360), // 0-359 degrees
+    type,
+    callsign: `${prefix}${number}`,
+    lastUpdate: Date.now(),
+  };
+}
+
+export function generateRandomAlert(): Alert {
+  const alertTypes: Array<{ type: Alert['type']; priority: Alert['priority']; messages: string[] }> = [
+    {
+      type: 'DETECTION',
+      priority: 'LOW',
+      messages: [
+        'New aircraft detected in sector Alpha-7',
+        'Contact established with commercial flight',
+        'Civilian aircraft entering monitored airspace',
+      ],
+    },
+    {
+      type: 'THREAT',
+      priority: 'MEDIUM',
+      messages: [
+        'Unidentified aircraft detected - altitude 8500m',
+        'Aircraft deviating from assigned flight path',
+        'Unknown contact - IFF not responding',
+      ],
+    },
+    {
+      type: 'THREAT',
+      priority: 'HIGH',
+      messages: [
+        'Multiple unidentified contacts detected',
+        'High-speed aircraft on intercept course',
+        'Emergency: Aircraft not responding to communications',
+      ],
+    },
+    {
+      type: 'SYSTEM',
+      priority: 'LOW',
+      messages: [
+        'Radar system performing scheduled calibration',
+        'Communication link restored to sector control',
+        'System diagnostics completed successfully',
+      ],
+    },
+    {
+      type: 'INFO',
+      priority: 'LOW',
+      messages: [
+        'Weather update: Clear skies, visibility 15km',
+        'Airspace restriction lifted for sector Bravo-3',
+        'Training exercise scheduled for 14:00-16:00',
+      ],
+    },
+  ];
+
+  const alertCategory = alertTypes[Math.floor(Math.random() * alertTypes.length)];
+  const message = alertCategory.messages[Math.floor(Math.random() * alertCategory.messages.length)];
+
+  const alert: Alert = {
+    id: `ALT${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
+    timestamp: Date.now(),
+    type: alertCategory.type,
+    priority: alertCategory.priority,
+    message,
+  };
+
+  // Add position for detection and threat alerts
+  if (alertCategory.type === 'DETECTION' || alertCategory.type === 'THREAT') {
+    alert.position = {
+      lat: Math.random() * 35 + 35,
+      lng: Math.random() * 50 - 10,
+    };
+  }
+
+  return alert;
+}
+
+export function interpolatePosition(
+  start: { lat: number; lng: number; altitude: number },
+  end: { lat: number; lng: number; altitude: number },
+  t: number
+) {
+  return {
+    lat: start.lat + (end.lat - start.lat) * t,
+    lng: start.lng + (end.lng - start.lng) * t,
+    altitude: start.altitude + (end.altitude - start.altitude) * t,
+  };
+}
+
+export function calculateDistance(
+  pos1: { lat: number; lng: number },
+  pos2: { lat: number; lng: number }
+): number {
+  const R = 6371; // Earth's radius in km
+  const dLat = (pos2.lat - pos1.lat) * Math.PI / 180;
+  const dLng = (pos2.lng - pos1.lng) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(pos1.lat * Math.PI / 180) * Math.cos(pos2.lat * Math.PI / 180) * 
+    Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
