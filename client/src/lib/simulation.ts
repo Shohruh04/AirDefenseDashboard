@@ -10,6 +10,7 @@ export interface Aircraft {
   type: 'Commercial' | 'Military' | 'Private' | 'Unknown';
   callsign: string;
   lastUpdate: number;
+  threatLevel: 'FRIENDLY' | 'NEUTRAL' | 'SUSPECT' | 'HOSTILE';
 }
 
 export interface Alert {
@@ -37,6 +38,20 @@ export function generateRandomAircraft(): Aircraft {
   const lat = Math.random() * 35 + 35; // 35-70 degrees North
   const lng = Math.random() * 50 - 10; // -10 to 40 degrees East
   
+  // Determine threat level based on aircraft type and behavior
+  let threatLevel: Aircraft['threatLevel'];
+  const random = Math.random();
+  
+  if (type === 'Commercial') {
+    threatLevel = random < 0.9 ? 'FRIENDLY' : 'NEUTRAL';
+  } else if (type === 'Military') {
+    threatLevel = random < 0.5 ? 'FRIENDLY' : random < 0.8 ? 'NEUTRAL' : 'SUSPECT';
+  } else if (type === 'Unknown') {
+    threatLevel = random < 0.3 ? 'NEUTRAL' : random < 0.7 ? 'SUSPECT' : 'HOSTILE';
+  } else {
+    threatLevel = random < 0.8 ? 'FRIENDLY' : 'NEUTRAL';
+  }
+  
   return {
     id,
     position: {
@@ -49,6 +64,7 @@ export function generateRandomAircraft(): Aircraft {
     type,
     callsign: `${prefix}${number}`,
     lastUpdate: Date.now(),
+    threatLevel,
   };
 }
 
@@ -148,4 +164,23 @@ export function calculateDistance(
     Math.sin(dLng/2) * Math.sin(dLng/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   return R * c;
+}
+
+export function getThreatLevelColor(threatLevel: Aircraft['threatLevel']): string {
+  switch (threatLevel) {
+    case 'FRIENDLY':
+      return '#10b981'; // Green
+    case 'NEUTRAL':
+      return '#3b82f6'; // Blue
+    case 'SUSPECT':
+      return '#f59e0b'; // Orange
+    case 'HOSTILE':
+      return '#ef4444'; // Red
+    default:
+      return '#6b7280'; // Gray
+  }
+}
+
+export function getThreatLevelLabel(threatLevel: Aircraft['threatLevel']): string {
+  return threatLevel.charAt(0) + threatLevel.slice(1).toLowerCase();
 }

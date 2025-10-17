@@ -12,10 +12,13 @@ import {
   Clock,
   MapPin,
   Search,
-  Filter
+  Filter,
+  Download,
+  FileText
 } from 'lucide-react';
 import { useSimulation } from '../../lib/stores/useSimulation';
 import type { Alert } from '../../lib/simulation';
+import { exportToCSV, exportAlertsToPDF } from '../../lib/exportUtils';
 
 const AlertsLog: React.FC = () => {
   const { alerts } = useSimulation();
@@ -64,14 +67,52 @@ const AlertsLog: React.FC = () => {
     low: alerts.filter(a => a.priority === 'LOW').length,
   };
 
+  const handleExportCSV = () => {
+    const exportData = filteredAlerts.map(alert => ({
+      Timestamp: new Date(alert.timestamp).toLocaleString(),
+      Type: alert.type,
+      Priority: alert.priority,
+      Message: alert.message,
+      Latitude: alert.position?.lat.toFixed(4) || 'N/A',
+      Longitude: alert.position?.lng.toFixed(4) || 'N/A',
+    }));
+    exportToCSV(exportData, 'air_defense_alerts');
+  };
+
+  const handleExportPDF = () => {
+    exportAlertsToPDF(filteredAlerts);
+  };
+
   return (
     <div className="w-full h-full p-6 overflow-y-auto">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-foreground mb-2">Alerts & Events Log</h2>
-          <p className="text-muted-foreground">
-            Real-time monitoring of system events and security alerts
-          </p>
+        <div className="mb-6 flex justify-between items-start">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground mb-2">Alerts & Events Log</h2>
+            <p className="text-muted-foreground">
+              Real-time monitoring of system events and security alerts
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportPDF}
+              className="flex items-center gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              Export PDF
+            </Button>
+          </div>
         </div>
 
         {/* Summary Cards */}

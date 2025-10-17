@@ -13,10 +13,13 @@ import {
   Monitor,
   Sun,
   Moon,
-  Info
+  Info,
+  SkipBack,
+  Rewind
 } from 'lucide-react';
 import { useSettings } from '../../lib/stores/useSettings';
 import { useSimulation } from '../../lib/stores/useSimulation';
+import { usePlayback } from '../../lib/stores/usePlayback';
 
 const Settings: React.FC = () => {
   const { 
@@ -31,6 +34,7 @@ const Settings: React.FC = () => {
   } = useSettings();
   
   const { startSimulation, stopSimulation, isRunning } = useSimulation();
+  const { isPaused, isRewinding, history, togglePause, rewind, clearHistory } = usePlayback();
 
   const handleToggleSimulation = () => {
     toggleSimulation();
@@ -233,6 +237,76 @@ const Settings: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Playback Controls */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <SkipBack className="h-5 w-5" />
+              Playback Controls
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-base font-medium">Simulation Playback</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Pause and rewind through simulation history
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant={isPaused ? "default" : "outline"}
+                    size="sm"
+                    onClick={togglePause}
+                    className="flex items-center gap-2"
+                  >
+                    {isPaused ? (
+                      <>
+                        <Play className="h-4 w-4" />
+                        Resume
+                      </>
+                    ) : (
+                      <>
+                        <Pause className="h-4 w-4" />
+                        Pause
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => rewind(5)}
+                    disabled={history.length < 5}
+                    className="flex items-center gap-2"
+                  >
+                    <Rewind className="h-4 w-4" />
+                    Rewind 5s
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => rewind(10)}
+                    disabled={history.length < 10}
+                    className="flex items-center gap-2"
+                  >
+                    <SkipBack className="h-4 w-4" />
+                    Rewind 10s
+                  </Button>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <Badge variant="outline">
+                  History: {history.length} snapshots
+                </Badge>
+                {isRewinding && (
+                  <Badge variant="default">Viewing Historical Data</Badge>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Reset and Actions */}
         <Card className="mb-6">
           <CardHeader>
@@ -246,7 +320,7 @@ const Settings: React.FC = () => {
                 onClick={() => {
                   setRefreshRate(2);
                   setViewMode('3D');
-                  // Reset to defaults
+                  clearHistory();
                 }}
               >
                 <RefreshCw className="h-4 w-4" />
@@ -257,8 +331,8 @@ const Settings: React.FC = () => {
                 variant="outline" 
                 className="flex items-center gap-2"
                 onClick={() => {
-                  // Clear all data and restart
                   stopSimulation();
+                  clearHistory();
                   setTimeout(() => startSimulation(), 1000);
                 }}
               >

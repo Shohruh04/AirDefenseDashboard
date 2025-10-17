@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { generateRandomAircraft, generateRandomAlert, type Aircraft, type Alert } from '../simulation';
+import { usePlayback } from './usePlayback';
 
 interface SimulationState {
   aircraft: Aircraft[];
@@ -68,6 +69,25 @@ export const useSimulation = create<SimulationState>()(
       // Update aircraft positions every 2 seconds
       simulationInterval = setInterval(() => {
         const currentState = get();
+        const playbackState = usePlayback.getState();
+        
+        // Skip updates if paused or rewinding
+        if (playbackState.isPaused || playbackState.isRewinding) {
+          // If rewinding, use historical snapshot
+          if (playbackState.isRewinding) {
+            const snapshot = playbackState.getCurrentSnapshot();
+            if (snapshot) {
+              set({
+                aircraft: snapshot.aircraft,
+                alerts: snapshot.alerts,
+                systemStatus: snapshot.systemStatus,
+                analytics: snapshot.analytics,
+              });
+            }
+          }
+          return;
+        }
+        
         const updatedAircraft = currentState.aircraft.map(aircraft => {
           // Update position based on speed and direction
           const speed = aircraft.speed / 3600; // Convert km/h to km/s
@@ -97,6 +117,16 @@ export const useSimulation = create<SimulationState>()(
 
         set({ aircraft: finalAircraft });
         get().updateSystemStatus();
+        
+        // Save snapshot to history
+        const newState = get();
+        playbackState.addSnapshot({
+          timestamp: Date.now(),
+          aircraft: newState.aircraft,
+          alerts: newState.alerts,
+          systemStatus: newState.systemStatus,
+          analytics: newState.analytics,
+        });
       }, 2000);
 
       // Generate alerts every 5-15 seconds

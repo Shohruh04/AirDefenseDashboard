@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { useSimulation } from '../../lib/stores/useSimulation';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
+import { getThreatLevelColor, getThreatLevelLabel } from '../../lib/simulation';
 
 // Leaflet types
 declare global {
@@ -68,9 +69,9 @@ const Map2D: React.FC = () => {
 
     radarZonesRef.current = [shortRange, mediumRange, longRange];
 
-    // Add legends
-    const legend = L.control({ position: 'bottomright' });
-    legend.onAdd = function() {
+    // Add radar coverage legend
+    const radarLegend = L.control({ position: 'bottomright' });
+    radarLegend.onAdd = function() {
       const div = L.DomUtil.create('div', 'info legend');
       div.style.background = 'rgba(255, 255, 255, 0.9)';
       div.style.padding = '10px';
@@ -84,7 +85,26 @@ const Map2D: React.FC = () => {
       `;
       return div;
     };
-    legend.addTo(map);
+    radarLegend.addTo(map);
+
+    // Add threat level legend
+    const threatLegend = L.control({ position: 'topleft' });
+    threatLegend.onAdd = function() {
+      const div = L.DomUtil.create('div', 'info legend');
+      div.style.background = 'rgba(255, 255, 255, 0.9)';
+      div.style.padding = '10px';
+      div.style.borderRadius = '5px';
+      div.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+      div.innerHTML = `
+        <h4 style="margin: 0 0 8px 0; font-weight: bold;">Threat Levels</h4>
+        <div style="margin: 4px 0;"><span style="color: #10b981;">●</span> Friendly</div>
+        <div style="margin: 4px 0;"><span style="color: #3b82f6;">●</span> Neutral</div>
+        <div style="margin: 4px 0;"><span style="color: #f59e0b;">●</span> Suspect</div>
+        <div style="margin: 4px 0;"><span style="color: #ef4444;">●</span> Hostile</div>
+      `;
+      return div;
+    };
+    threatLegend.addTo(map);
 
     return () => {
       if (leafletMapRef.current) {
@@ -106,8 +126,7 @@ const Map2D: React.FC = () => {
 
     // Add new aircraft markers
     aircraft.forEach(ac => {
-      const iconColor = ac.type === 'Military' ? '#ef4444' : 
-                       ac.type === 'Unknown' ? '#f59e0b' : '#10b981';
+      const iconColor = getThreatLevelColor(ac.threatLevel);
       
       const marker = L.circleMarker([ac.position.lat, ac.position.lng], {
         radius: 6,
@@ -122,6 +141,7 @@ const Map2D: React.FC = () => {
         <div style="font-family: monospace;">
           <h4 style="margin: 0 0 8px 0; color: ${iconColor};">${ac.callsign}</h4>
           <div><strong>Type:</strong> ${ac.type}</div>
+          <div><strong>Threat Level:</strong> <span style="color: ${iconColor}; font-weight: bold;">${getThreatLevelLabel(ac.threatLevel)}</span></div>
           <div><strong>Altitude:</strong> ${ac.position.altitude.toLocaleString()}m</div>
           <div><strong>Speed:</strong> ${ac.speed} km/h</div>
           <div><strong>Heading:</strong> ${ac.heading}°</div>
