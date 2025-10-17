@@ -5,6 +5,7 @@ import * as THREE from 'three';
 const RadarSweep: React.FC = () => {
   const sweepRef = useRef<THREE.Mesh>(null);
   const ringRef = useRef<THREE.Mesh>(null);
+  const glowRef = useRef<THREE.Mesh>(null);
 
   useFrame((state) => {
     if (sweepRef.current) {
@@ -14,6 +15,11 @@ const RadarSweep: React.FC = () => {
       // Pulsing effect
       const pulse = Math.sin(state.clock.elapsedTime * 2) * 0.1 + 1;
       ringRef.current.scale.setScalar(pulse);
+    }
+    if (glowRef.current) {
+      // Glow pulsing
+      const glow = Math.sin(state.clock.elapsedTime * 3) * 0.3 + 0.7;
+      (glowRef.current.material as THREE.MeshBasicMaterial).opacity = glow * 0.4;
     }
   });
 
@@ -70,6 +76,17 @@ const RadarSweep: React.FC = () => {
           transparent
           opacity={0.1}
           side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* Glow effect around radar */}
+      <mesh ref={glowRef} position={[0, 1.5, 0]}>
+        <sphereGeometry args={[4, 16, 16]} />
+        <meshBasicMaterial
+          color="#00ff88"
+          transparent
+          opacity={0.4}
+          blending={THREE.AdditiveBlending}
         />
       </mesh>
     </group>

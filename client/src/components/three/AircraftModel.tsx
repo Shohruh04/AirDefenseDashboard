@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { Text } from '@react-three/drei';
 import * as THREE from 'three';
 import type { Aircraft } from '../../lib/simulation';
+import { getThreatLevelColor, getThreatLevelLabel } from '../../lib/simulation';
 
 interface AircraftModelProps {
   aircraft: Aircraft;
@@ -46,38 +47,27 @@ const AircraftModel: React.FC<AircraftModelProps> = ({ aircraft }) => {
     }
   });
 
-  // Aircraft color based on type
-  const getAircraftColor = () => {
-    switch (aircraft.type) {
-      case 'Military':
-        return '#ef4444';
-      case 'Unknown':
-        return '#f59e0b';
-      case 'Private':
-        return '#8b5cf6';
-      default:
-        return '#10b981';
-    }
-  };
+  // Aircraft color based on threat level
+  const aircraftColor = getThreatLevelColor(aircraft.threatLevel);
 
   return (
     <group ref={meshRef}>
       {/* Aircraft body */}
       <mesh position={[0, 0, 0]} castShadow>
         <cylinderGeometry args={[0.2, 0.5, 2, 8]} />
-        <meshLambertMaterial color={getAircraftColor()} />
+        <meshLambertMaterial color={aircraftColor} />
       </mesh>
 
       {/* Wings */}
       <mesh position={[0, 0, 0]} castShadow>
         <boxGeometry args={[3, 0.1, 0.5]} />
-        <meshLambertMaterial color={getAircraftColor()} />
+        <meshLambertMaterial color={aircraftColor} />
       </mesh>
 
       {/* Tail */}
       <mesh position={[0, 0.3, -0.8]} castShadow>
         <boxGeometry args={[0.1, 0.6, 0.3]} />
-        <meshLambertMaterial color={getAircraftColor()} />
+        <meshLambertMaterial color={aircraftColor} />
       </mesh>
 
       {/* Aircraft label */}
@@ -92,10 +82,22 @@ const AircraftModel: React.FC<AircraftModelProps> = ({ aircraft }) => {
         {aircraft.callsign}
       </Text>
 
+      {/* Threat level indicator */}
+      <Text
+        position={[0, 1.1, 0]}
+        fontSize={0.15}
+        color={aircraftColor}
+        anchorX="center"
+        anchorY="middle"
+        billboard
+      >
+        {getThreatLevelLabel(aircraft.threatLevel)}
+      </Text>
+
       {/* Info text */}
       <Text
-        position={[0, 1.0, 0]}
-        fontSize={0.15}
+        position={[0, 0.7, 0]}
+        fontSize={0.12}
         color="#cccccc"
         anchorX="center"
         anchorY="middle"
@@ -107,7 +109,7 @@ const AircraftModel: React.FC<AircraftModelProps> = ({ aircraft }) => {
       {/* Trail effect */}
       <mesh position={[0, 0, 1]}>
         <cylinderGeometry args={[0.05, 0.05, 1, 4]} />
-        <meshBasicMaterial color={getAircraftColor()} transparent opacity={0.3} />
+        <meshBasicMaterial color={aircraftColor} transparent opacity={0.3} />
       </mesh>
     </group>
   );

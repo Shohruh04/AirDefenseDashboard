@@ -1,6 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../ui/button';
+import { Download, FileText } from 'lucide-react';
 import { useSimulation } from '../../lib/stores/useSimulation';
+import { exportToCSV, exportAnalyticsToPDF } from '../../lib/exportUtils';
 
 // Chart.js types
 declare global {
@@ -182,14 +185,66 @@ const Analytics: React.FC = () => {
     }
   }, [analytics]);
 
+  const handleExportCSV = () => {
+    const exportData = [
+      ...analytics.detectionsPerMinute.map((value, index) => ({
+        Metric: 'Detections per Minute',
+        TimePoint: `${index + 1}m`,
+        Value: value,
+      })),
+      ...analytics.systemLoad.map((value, index) => ({
+        Metric: 'System Load %',
+        TimePoint: `${index + 1}m`,
+        Value: value,
+      })),
+      ...analytics.altitudeDistribution.map(item => ({
+        Metric: 'Altitude Distribution',
+        Altitude: item.altitude,
+        Count: item.count,
+      })),
+    ];
+    exportToCSV(exportData, 'air_defense_analytics');
+  };
+
+  const handleExportPDF = () => {
+    exportAnalyticsToPDF({
+      detectionsPerMinute: analytics.detectionsPerMinute,
+      altitudeDistribution: analytics.altitudeDistribution,
+      systemLoad: analytics.systemLoad,
+      aircraft,
+    });
+  };
+
   return (
     <div className="w-full h-full p-6 overflow-y-auto">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-foreground mb-2">Analytics Dashboard</h2>
-          <p className="text-muted-foreground">
-            Performance metrics and tracking statistics
-          </p>
+        <div className="mb-6 flex justify-between items-start">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground mb-2">Analytics Dashboard</h2>
+            <p className="text-muted-foreground">
+              Performance metrics and tracking statistics
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportPDF}
+              className="flex items-center gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              Export PDF
+            </Button>
+          </div>
         </div>
 
         {/* Summary Cards */}

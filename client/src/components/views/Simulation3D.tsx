@@ -4,6 +4,7 @@ import { OrbitControls, PerspectiveCamera, Stars } from '@react-three/drei';
 import { useSettings } from '../../lib/stores/useSettings';
 import AircraftModel from '../three/AircraftModel';
 import RadarSweep from '../three/RadarSweep';
+import RadarParticles from '../three/RadarParticles';
 import Terrain from '../three/Terrain';
 import RangeIndicator from '../three/RangeIndicator';
 import { Badge } from '../ui/badge';
@@ -193,6 +194,9 @@ const Simulation3D: React.FC = () => {
 
           {/* Radar sweep */}
           <RadarSweep />
+
+          {/* Radar particles effect */}
+          <RadarParticles />
 
           {/* Aircraft */}
           {aircraft.map((ac) => (
