@@ -142,7 +142,7 @@ const Map2D: React.FC = () => {
           <h4 style="margin: 0 0 8px 0; color: ${iconColor};">${ac.callsign}</h4>
           <div><strong>Type:</strong> ${ac.type}</div>
           <div><strong>Threat Level:</strong> <span style="color: ${iconColor}; font-weight: bold;">${getThreatLevelLabel(ac.threatLevel)}</span></div>
-          <div><strong>Altitude:</strong> ${ac.position.altitude.toLocaleString()}m</div>
+          <div><strong>Altitude:</strong> ${(ac.position?.altitude ?? 0).toLocaleString()}m</div>
           <div><strong>Speed:</strong> ${ac.speed} km/h</div>
           <div><strong>Heading:</strong> ${ac.heading}°</div>
           <div><strong>Position:</strong> ${ac.position.lat.toFixed(4)}°, ${ac.position.lng.toFixed(4)}°</div>
