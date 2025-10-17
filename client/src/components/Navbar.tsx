@@ -4,6 +4,7 @@ import { Badge } from './ui/badge';
 import { Menu, Shield, WifiOff, Wifi } from 'lucide-react';
 import { useSimulation } from '../lib/stores/useSimulation';
 import { useSettings } from '../lib/stores/useSettings';
+import ThemeToggle from './ThemeToggle';
 import type { TabType } from './Layout';
 
 interface NavbarProps {
@@ -85,6 +86,9 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onToggleSidebar }) => {
               <span className="font-mono">{systemStatus.radarUptime.toFixed(1)}%</span>
             </Badge>
           </div>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
         </div>
       </div>
     </header>

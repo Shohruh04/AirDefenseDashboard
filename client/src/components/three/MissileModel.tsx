@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { Line } from '@react-three/drei';
 import { type Missile } from '../../lib/simulation';
 
 interface MissileModelProps {
@@ -9,8 +10,8 @@ interface MissileModelProps {
 
 const MissileModel: React.FC<MissileModelProps> = ({ missile }) => {
   const groupRef = useRef<THREE.Group>(null);
-  const trailGeometryRef = useRef<THREE.BufferGeometry>(new THREE.BufferGeometry());
-  const trailPoints = useRef<THREE.Vector3[]>([]);
+  const trailPointsRef = useRef<THREE.Vector3[]>([]);
+  const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
 
   // Convert lat/lng to 3D coordinates
   const x = (missile.currentPosition.lng - 10) * 3;
@@ -23,13 +24,6 @@ const MissileModel: React.FC<MissileModelProps> = ({ missile }) => {
 
   useFrame(() => {
     if (groupRef.current) {
-      // Calculate direction for missile rotation
-      const direction = new THREE.Vector3(
-        targetX - x,
-        targetY - y,
-        targetZ - z
-      ).normalize();
-      
       // Rotate missile to face target
       groupRef.current.lookAt(
         new THREE.Vector3(targetX, targetY, targetZ)
@@ -37,19 +31,22 @@ const MissileModel: React.FC<MissileModelProps> = ({ missile }) => {
 
       // Update trail
       const currentPos = new THREE.Vector3(x, y, z);
-      trailPoints.current.push(currentPos);
+      trailPointsRef.current.push(currentPos.clone());
       
       // Keep only last 20 points
-      if (trailPoints.current.length > 20) {
-        trailPoints.current.shift();
+      if (trailPointsRef.current.length > 20) {
+        trailPointsRef.current.shift();
       }
 
-      // Update trail geometry
-      if (trailPoints.current.length > 1) {
-        trailGeometryRef.current.setFromPoints(trailPoints.current);
+      // Force re-render to update Line component
+      if (trailPointsRef.current.length > 1 && Math.random() < 0.3) {
+        forceUpdate();
       }
     }
   });
+
+  // Create fresh array for Line component to detect changes
+  const trailPoints = [...trailPointsRef.current];
 
   return (
     <group ref={groupRef} position={[x, y, z]}>
@@ -86,11 +83,16 @@ const MissileModel: React.FC<MissileModelProps> = ({ missile }) => {
       {/* Glow effect */}
       <pointLight position={[0, 0, 0]} color="#ff4444" intensity={2} distance={5} />
 
-      {/* Trail */}
-      <line>
-        <bufferGeometry ref={trailGeometryRef} />
-        <lineBasicMaterial color="#ff6666" opacity={0.6} transparent linewidth={2} />
-      </line>
+      {/* Trail using drei Line component */}
+      {trailPoints.length > 1 && (
+        <Line
+          points={trailPoints}
+          color="#ff6666"
+          lineWidth={2}
+          transparent
+          opacity={0.6}
+        />
+      )}
     </group>
   );
 };

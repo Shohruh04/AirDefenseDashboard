@@ -34,8 +34,8 @@ interface SimulationState {
 let simulationInterval: NodeJS.Timeout | null = null;
 let alertInterval: NodeJS.Timeout | null = null;
 let analyticsInterval: NodeJS.Timeout | null = null;
-
 let missileInterval: NodeJS.Timeout | null = null;
+let missileLaunchInterval: NodeJS.Timeout | null = null;
 
 export const useSimulation = create<SimulationState>()(
   subscribeWithSelector((set, get) => ({
@@ -154,7 +154,7 @@ export const useSimulation = create<SimulationState>()(
       }, 100);
 
       // Auto-launch missiles at hostile/suspect targets every 8-15 seconds
-      setInterval(() => {
+      missileLaunchInterval = setInterval(() => {
         const currentState = get();
         const threats = currentState.aircraft.filter(
           ac => (ac.threatLevel === 'HOSTILE' || ac.threatLevel === 'SUSPECT') && 
@@ -186,6 +186,10 @@ export const useSimulation = create<SimulationState>()(
       if (missileInterval) {
         clearInterval(missileInterval);
         missileInterval = null;
+      }
+      if (missileLaunchInterval) {
+        clearInterval(missileLaunchInterval);
+        missileLaunchInterval = null;
       }
     },
 
