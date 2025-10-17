@@ -1,18 +1,18 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Badge } from '../ui/badge';
-import { Button } from '../ui/button';
-import { 
-  Shield, 
-  Info, 
-  Code, 
-  Database, 
-  Globe, 
-  Users, 
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import {
+  Shield,
+  Info,
+  Code,
+  Database,
+  Globe,
+  Users,
   BookOpen,
   ExternalLink,
-  AlertTriangle
-} from 'lucide-react';
+  AlertTriangle,
+} from "lucide-react";
 
 const About: React.FC = () => {
   return (
@@ -40,13 +40,17 @@ const About: React.FC = () => {
                   Educational Simulation Notice
                 </h3>
                 <p className="text-orange-700 dark:text-orange-300 mb-3">
-                  <strong>This project is a simulated educational dashboard.</strong> All visuals, data, and 
-                  functionality are artificially generated and do not represent real air defense systems, 
+                  <strong>
+                    This project is a simulated educational dashboard.
+                  </strong>{" "}
+                  All visuals, data, and functionality are artificially
+                  generated and do not represent real air defense systems,
                   actual aircraft movements, or government sources.
                 </p>
                 <p className="text-orange-700 dark:text-orange-300">
-                  This simulation is designed purely for educational purposes as part of a Computer Science 
-                  diploma project and is safe for public presentation and demonstration.
+                  This simulation is designed purely for educational purposes as
+                  part of a Computer Science diploma project and is safe for
+                  public presentation and demonstration.
                 </p>
               </div>
             </div>
@@ -63,11 +67,12 @@ const About: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground">
-              This educational air defense simulation dashboard was developed as a Computer Science diploma 
-              project to demonstrate advanced web development skills, 3D visualization techniques, and 
-              real-time data management concepts.
+              This educational air defense simulation dashboard was developed as
+              a Computer Science diploma project to demonstrate advanced web
+              development skills, 3D visualization techniques, and real-time
+              data management concepts.
             </p>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-3">
                 <h4 className="font-semibold">Key Features</h4>
@@ -80,7 +85,7 @@ const About: React.FC = () => {
                   <li>• Alert system with event logging</li>
                 </ul>
               </div>
-              
+
               <div className="space-y-3">
                 <h4 className="font-semibold">Learning Objectives</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
@@ -159,32 +164,35 @@ const About: React.FC = () => {
                 <div className="space-y-3">
                   <h4 className="font-semibold">2D Map View</h4>
                   <p className="text-sm text-muted-foreground">
-                    Interactive map showing radar coverage zones and simulated aircraft positions 
-                    with real-time updates and detailed tooltips.
+                    Interactive map showing radar coverage zones and simulated
+                    aircraft positions with real-time updates and detailed
+                    tooltips.
                   </p>
                 </div>
 
                 <div className="space-y-3">
                   <h4 className="font-semibold">3D Simulation</h4>
                   <p className="text-sm text-muted-foreground">
-                    Immersive 3D environment with moving aircraft models, animated radar sweep, 
-                    and day/night lighting modes with orbital camera controls.
+                    Immersive 3D environment with moving aircraft models,
+                    animated radar sweep, and day/night lighting modes with
+                    orbital camera controls.
                   </p>
                 </div>
 
                 <div className="space-y-3">
                   <h4 className="font-semibold">Analytics Dashboard</h4>
                   <p className="text-sm text-muted-foreground">
-                    Interactive charts displaying aircraft detection rates, altitude distribution, 
-                    and system performance metrics over time.
+                    Interactive charts displaying aircraft detection rates,
+                    altitude distribution, and system performance metrics over
+                    time.
                   </p>
                 </div>
 
                 <div className="space-y-3">
                   <h4 className="font-semibold">Alert System</h4>
                   <p className="text-sm text-muted-foreground">
-                    Real-time alert logging with filtering and search capabilities, 
-                    categorized by type and priority levels.
+                    Real-time alert logging with filtering and search
+                    capabilities, categorized by type and priority levels.
                   </p>
                 </div>
               </div>
@@ -203,11 +211,12 @@ const About: React.FC = () => {
           <CardContent>
             <div className="space-y-4">
               <p className="text-muted-foreground">
-                All data displayed in this simulation is completely artificial and generated using 
-                algorithmic methods. No real aircraft data, government sources, or actual air defense 
-                information is used in any form.
+                All data displayed in this simulation is completely artificial
+                and generated using algorithmic methods. No real aircraft data,
+                government sources, or actual air defense information is used in
+                any form.
               </p>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <h4 className="font-semibold">Simulated Data Types</h4>
@@ -218,7 +227,7 @@ const About: React.FC = () => {
                     <li>• Synthetic system performance metrics</li>
                   </ul>
                 </div>
-                
+
                 <div className="space-y-2">
                   <h4 className="font-semibold">Generation Methods</h4>
                   <ul className="text-sm text-muted-foreground space-y-1">
@@ -240,10 +249,11 @@ const About: React.FC = () => {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground mb-4">
-              This project serves as a comprehensive demonstration of modern web development techniques 
-              and is intended for educational evaluation and learning purposes only. It showcases:
+              This project serves as a comprehensive demonstration of modern web
+              development techniques and is intended for educational evaluation
+              and learning purposes only. It showcases:
             </p>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ul className="text-sm text-muted-foreground space-y-2">
                 <li>• Complex React.js application architecture</li>
@@ -251,7 +261,7 @@ const About: React.FC = () => {
                 <li>• Real-time data visualization techniques</li>
                 <li>• Responsive user interface design</li>
               </ul>
-              
+
               <ul className="text-sm text-muted-foreground space-y-2">
                 <li>• State management best practices</li>
                 <li>• Performance optimization strategies</li>
@@ -266,7 +276,8 @@ const About: React.FC = () => {
         <Card>
           <CardContent className="p-4 text-center">
             <p className="text-sm text-muted-foreground">
-              Developed as a Computer Science Diploma Project • Educational Use Only
+              Developed as a Computer Science Diploma Project • Educational Use
+              Only
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               All data is simulated • No real defense systems represented

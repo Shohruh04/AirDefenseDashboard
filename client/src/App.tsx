@@ -1,9 +1,9 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router } from 'react-router-dom';
-import { ThemeProvider } from 'next-themes';
-import Layout from './components/Layout';
-import { useSimulation } from './lib/stores/useSimulation';
-import { useSettings } from './lib/stores/useSettings';
+import React, { useEffect } from "react";
+import { BrowserRouter as Router } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
+import Layout from "./components/Layout";
+import { useSimulation } from "./lib/stores/useSimulation";
+import { useSettings } from "./lib/stores/useSettings";
 
 function App() {
   const { startSimulation, stopSimulation } = useSimulation();
@@ -14,7 +14,7 @@ function App() {
     if (isSimulationRunning) {
       startSimulation();
     }
-    
+
     // Cleanup on unmount
     return () => {
       stopSimulation();
