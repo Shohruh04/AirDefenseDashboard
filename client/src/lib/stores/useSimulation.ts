@@ -1,11 +1,12 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { generateRandomAircraft, generateRandomAlert, type Aircraft, type Alert } from '../simulation';
+import { generateRandomAircraft, generateRandomAlert, type Aircraft, type Alert, type Missile } from '../simulation';
 import { usePlayback } from './usePlayback';
 
 interface SimulationState {
   aircraft: Aircraft[];
   alerts: Alert[];
+  missiles: Missile[];
   systemStatus: {
     radarUptime: number;
     aircraftCount: number;
@@ -26,16 +27,21 @@ interface SimulationState {
   addAlert: (alert: Alert) => void;
   updateSystemStatus: () => void;
   updateAnalytics: () => void;
+  launchMissile: (targetId: string) => void;
+  updateMissiles: () => void;
 }
 
 let simulationInterval: NodeJS.Timeout | null = null;
 let alertInterval: NodeJS.Timeout | null = null;
 let analyticsInterval: NodeJS.Timeout | null = null;
 
+let missileInterval: NodeJS.Timeout | null = null;
+
 export const useSimulation = create<SimulationState>()(
   subscribeWithSelector((set, get) => ({
     aircraft: [],
     alerts: [],
+    missiles: [],
     systemStatus: {
       radarUptime: 98.7,
       aircraftCount: 0,
@@ -102,7 +108,7 @@ export const useSimulation = create<SimulationState>()(
           
           return {
             ...aircraft,
-            position: { lat: boundedLat, lng: boundedLng },
+            position: { lat: boundedLat, lng: boundedLng, altitude: aircraft.position.altitude },
             lastUpdate: Date.now(),
           };
         });
@@ -141,6 +147,25 @@ export const useSimulation = create<SimulationState>()(
       analyticsInterval = setInterval(() => {
         get().updateAnalytics();
       }, 10000);
+
+      // Update missiles every 100ms for smooth animation
+      missileInterval = setInterval(() => {
+        get().updateMissiles();
+      }, 100);
+
+      // Auto-launch missiles at hostile/suspect targets every 8-15 seconds
+      setInterval(() => {
+        const currentState = get();
+        const threats = currentState.aircraft.filter(
+          ac => (ac.threatLevel === 'HOSTILE' || ac.threatLevel === 'SUSPECT') && 
+          !currentState.missiles.some(m => m.targetId === ac.id && m.active)
+        );
+        
+        if (threats.length > 0 && Math.random() < 0.6) {
+          const target = threats[Math.floor(Math.random() * threats.length)];
+          get().launchMissile(target.id);
+        }
+      }, Math.random() * 7000 + 8000);
     },
 
     stopSimulation: () => {
@@ -157,6 +182,10 @@ export const useSimulation = create<SimulationState>()(
       if (analyticsInterval) {
         clearInterval(analyticsInterval);
         analyticsInterval = null;
+      }
+      if (missileInterval) {
+        clearInterval(missileInterval);
+        missileInterval = null;
       }
     },
 
@@ -199,6 +228,91 @@ export const useSimulation = create<SimulationState>()(
           }
         };
       });
+    },
+
+    launchMissile: (targetId: string) => {
+      const state = get();
+      const target = state.aircraft.find(ac => ac.id === targetId);
+      if (!target) return;
+
+      // Radar center position
+      const radarPosition = {
+        lat: 50.0,
+        lng: 10.0,
+        altitude: 0
+      };
+
+      const missile: Missile = {
+        id: `MSL${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+        startPosition: { ...radarPosition },
+        targetPosition: { ...target.position },
+        currentPosition: { ...radarPosition },
+        targetId,
+        launchTime: Date.now(),
+        speed: 3000, // 3000 km/h (very fast)
+        active: true
+      };
+
+      set((state) => ({
+        missiles: [...state.missiles, missile]
+      }));
+
+      // Add alert for missile launch
+      const alert: Alert = {
+        id: `ALT${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
+        timestamp: Date.now(),
+        type: 'SYSTEM',
+        message: `Interceptor missile launched at ${target.callsign}`,
+        priority: 'HIGH',
+        position: {
+          lat: radarPosition.lat,
+          lng: radarPosition.lng
+        }
+      };
+      get().addAlert(alert);
+    },
+
+    updateMissiles: () => {
+      const state = get();
+      const updatedMissiles = state.missiles
+        .map(missile => {
+          if (!missile.active) return missile;
+
+          const target = state.aircraft.find(ac => ac.id === missile.targetId);
+          if (!target) {
+            return { ...missile, active: false };
+          }
+
+          // Update target position
+          missile.targetPosition = { ...target.position };
+
+          // Calculate direction vector
+          const dx = missile.targetPosition.lat - missile.currentPosition.lat;
+          const dy = missile.targetPosition.lng - missile.currentPosition.lng;
+          const dz = missile.targetPosition.altitude - missile.currentPosition.altitude;
+          const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+          // Check if missile reached target
+          if (distance < 0.1) {
+            return { ...missile, active: false };
+          }
+
+          // Move missile towards target
+          const speed = missile.speed / 3600; // Convert km/h to km/s for 2-second intervals
+          const step = speed / distance;
+
+          return {
+            ...missile,
+            currentPosition: {
+              lat: missile.currentPosition.lat + dx * step,
+              lng: missile.currentPosition.lng + dy * step,
+              altitude: missile.currentPosition.altitude + dz * step
+            }
+          };
+        })
+        .filter(missile => missile.active || Date.now() - missile.launchTime < 10000); // Keep for 10 seconds
+
+      set({ missiles: updatedMissiles });
     },
   }))
 );

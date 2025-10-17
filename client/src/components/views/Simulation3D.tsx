@@ -5,6 +5,7 @@ import { useSettings } from '../../lib/stores/useSettings';
 import AircraftModel from '../three/AircraftModel';
 import RadarSweep from '../three/RadarSweep';
 import RadarParticles from '../three/RadarParticles';
+import MissileModel from '../three/MissileModel';
 import Terrain from '../three/Terrain';
 import RangeIndicator from '../three/RangeIndicator';
 import { Badge } from '../ui/badge';
@@ -26,7 +27,7 @@ const checkWebGLSupport = (): boolean => {
 
 const Simulation3D: React.FC = () => {
   const { isDayMode, toggleDayMode } = useSettings();
-  const { aircraft } = useSimulation();
+  const { aircraft, missiles } = useSimulation();
   const [webglError, setWebglError] = useState(false);
   const [webglSupported, setWebglSupported] = useState(true);
 
@@ -203,6 +204,14 @@ const Simulation3D: React.FC = () => {
             <AircraftModel
               key={ac.id}
               aircraft={ac}
+            />
+          ))}
+
+          {/* Missiles */}
+          {missiles.map((missile) => (
+            <MissileModel
+              key={missile.id}
+              missile={missile}
             />
           ))}
         </Suspense>
