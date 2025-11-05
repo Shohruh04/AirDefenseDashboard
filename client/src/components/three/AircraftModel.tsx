@@ -1,9 +1,9 @@
-import React, { useRef, useEffect } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { Text } from '@react-three/drei';
-import * as THREE from 'three';
-import type { Aircraft } from '../../lib/simulation';
-import { getThreatLevelColor, getThreatLevelLabel } from '../../lib/simulation';
+import React, { useRef, useEffect } from "react";
+import { useFrame } from "@react-three/fiber";
+import { Text } from "@react-three/drei";
+import * as THREE from "three";
+import type { Aircraft } from "../../lib/simulation";
+import { getThreatLevelColor, getThreatLevelLabel } from "../../lib/simulation";
 
 interface AircraftModelProps {
   aircraft: Aircraft;
@@ -11,7 +11,10 @@ interface AircraftModelProps {
 
 const AircraftModel: React.FC<AircraftModelProps> = ({ aircraft }) => {
   const meshRef = useRef<THREE.Group>(null);
-  const previousPosition = useRef({ lat: aircraft.position.lat, lng: aircraft.position.lng });
+  const previousPosition = useRef({
+    lat: aircraft.position.lat,
+    lng: aircraft.position.lng,
+  });
 
   // Convert lat/lng to 3D coordinates (simplified projection)
   const lat = aircraft.position.lat;
@@ -24,7 +27,7 @@ const AircraftModel: React.FC<AircraftModelProps> = ({ aircraft }) => {
     if (meshRef.current) {
       // Set initial position
       meshRef.current.position.set(x, y, z);
-      
+
       // Calculate rotation based on heading
       const headingRad = (aircraft.heading * Math.PI) / 180;
       meshRef.current.rotation.y = headingRad;
@@ -36,7 +39,7 @@ const AircraftModel: React.FC<AircraftModelProps> = ({ aircraft }) => {
       // Smooth interpolation to new position
       const targetPosition = new THREE.Vector3(x, y, z);
       meshRef.current.position.lerp(targetPosition, delta * 2);
-      
+
       // Update rotation based on heading
       const targetRotation = (aircraft.heading * Math.PI) / 180;
       meshRef.current.rotation.y = THREE.MathUtils.lerp(
