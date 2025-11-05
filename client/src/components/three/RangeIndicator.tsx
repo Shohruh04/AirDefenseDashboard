@@ -1,6 +1,6 @@
-import React, { useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
-import * as THREE from 'three';
+import React, { useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import * as THREE from "three";
 
 interface RangeIndicatorProps {
   radius: number;
@@ -8,10 +8,10 @@ interface RangeIndicatorProps {
   opacity?: number;
 }
 
-const RangeIndicator: React.FC<RangeIndicatorProps> = ({ 
-  radius, 
-  color, 
-  opacity = 0.1 
+const RangeIndicator: React.FC<RangeIndicatorProps> = ({
+  radius,
+  color,
+  opacity = 0.1,
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
 
@@ -24,11 +24,7 @@ const RangeIndicator: React.FC<RangeIndicatorProps> = ({
   });
 
   return (
-    <mesh 
-      ref={meshRef} 
-      position={[0, 0.2, 0]} 
-      rotation={[-Math.PI / 2, 0, 0]}
-    >
+    <mesh ref={meshRef} position={[0, 0.2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
       <ringGeometry args={[radius - 2, radius, 64]} />
       <meshBasicMaterial
         color={color}

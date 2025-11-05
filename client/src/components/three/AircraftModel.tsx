@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Text } from "@react-three/drei";
+import { Text, Billboard } from "@react-three/drei";
 import * as THREE from "three";
 import type { Aircraft } from "../../lib/simulation";
 import { getThreatLevelColor, getThreatLevelLabel } from "../../lib/simulation";
@@ -74,40 +74,43 @@ const AircraftModel: React.FC<AircraftModelProps> = ({ aircraft }) => {
       </mesh>
 
       {/* Aircraft label */}
-      <Text
-        position={[0, 1.5, 0]}
-        fontSize={0.3}
-        color="white"
-        anchorX="center"
-        anchorY="middle"
-        billboard
-      >
-        {aircraft.callsign}
-      </Text>
+      <Billboard>
+        <Text
+          position={[0, 1.5, 0]}
+          fontSize={0.3}
+          color="white"
+          anchorX="center"
+          anchorY="middle"
+        >
+          {aircraft.callsign}
+        </Text>
+      </Billboard>
 
       {/* Threat level indicator */}
-      <Text
-        position={[0, 1.1, 0]}
-        fontSize={0.15}
-        color={aircraftColor}
-        anchorX="center"
-        anchorY="middle"
-        billboard
-      >
-        {getThreatLevelLabel(aircraft.threatLevel)}
-      </Text>
+      <Billboard>
+        <Text
+          position={[0, 1.1, 0]}
+          fontSize={0.15}
+          color={aircraftColor}
+          anchorX="center"
+          anchorY="middle"
+        >
+          {getThreatLevelLabel(aircraft.threatLevel)}
+        </Text>
+      </Billboard>
 
       {/* Info text */}
-      <Text
-        position={[0, 0.7, 0]}
-        fontSize={0.12}
-        color="#cccccc"
-        anchorX="center"
-        anchorY="middle"
-        billboard
-      >
-        {`${aircraft.position.altitude}m • ${aircraft.speed}km/h`}
-      </Text>
+      <Billboard>
+        <Text
+          position={[0, 0.7, 0]}
+          fontSize={0.12}
+          color="#cccccc"
+          anchorX="center"
+          anchorY="middle"
+        >
+          {`${aircraft.position.altitude}m • ${aircraft.speed}km/h`}
+        </Text>
+      </Billboard>
 
       {/* Trail effect */}
       <mesh position={[0, 0, 1]}>

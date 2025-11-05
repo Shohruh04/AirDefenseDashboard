@@ -1,8 +1,8 @@
-import React, { useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
-import * as THREE from 'three';
-import { Line } from '@react-three/drei';
-import { type Missile } from '../../lib/simulation';
+import React, { useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import * as THREE from "three";
+import { Line } from "@react-three/drei";
+import { type Missile } from "../../lib/simulation";
 
 interface MissileModelProps {
   missile: Missile;
@@ -25,14 +25,12 @@ const MissileModel: React.FC<MissileModelProps> = ({ missile }) => {
   useFrame(() => {
     if (groupRef.current) {
       // Rotate missile to face target
-      groupRef.current.lookAt(
-        new THREE.Vector3(targetX, targetY, targetZ)
-      );
+      groupRef.current.lookAt(new THREE.Vector3(targetX, targetY, targetZ));
 
       // Update trail
       const currentPos = new THREE.Vector3(x, y, z);
       trailPointsRef.current.push(currentPos.clone());
-      
+
       // Keep only last 20 points
       if (trailPointsRef.current.length > 20) {
         trailPointsRef.current.shift();
@@ -53,13 +51,21 @@ const MissileModel: React.FC<MissileModelProps> = ({ missile }) => {
       {/* Missile body */}
       <mesh rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.1, 0.1, 1, 8]} />
-        <meshStandardMaterial color="#ff4444" emissive="#ff0000" emissiveIntensity={0.5} />
+        <meshStandardMaterial
+          color="#ff4444"
+          emissive="#ff0000"
+          emissiveIntensity={0.5}
+        />
       </mesh>
 
       {/* Missile warhead (cone) */}
       <mesh position={[0.6, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
         <coneGeometry args={[0.1, 0.4, 8]} />
-        <meshStandardMaterial color="#ffffff" emissive="#ff6666" emissiveIntensity={0.3} />
+        <meshStandardMaterial
+          color="#ffffff"
+          emissive="#ff6666"
+          emissiveIntensity={0.3}
+        />
       </mesh>
 
       {/* Fins */}
@@ -81,7 +87,12 @@ const MissileModel: React.FC<MissileModelProps> = ({ missile }) => {
       </mesh>
 
       {/* Glow effect */}
-      <pointLight position={[0, 0, 0]} color="#ff4444" intensity={2} distance={5} />
+      <pointLight
+        position={[0, 0, 0]}
+        color="#ff4444"
+        intensity={2}
+        distance={5}
+      />
 
       {/* Trail using drei Line component */}
       {trailPoints.length > 1 && (
