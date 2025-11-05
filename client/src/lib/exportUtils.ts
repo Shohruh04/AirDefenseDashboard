@@ -1,41 +1,46 @@
-import type { Alert, Aircraft } from './simulation';
+import type { Alert, Aircraft } from "./simulation";
 
 export function exportToCSV(data: any[], filename: string) {
   if (data.length === 0) {
-    alert('No data to export');
+    alert("No data to export");
     return;
   }
 
   // Get headers from first object
   const headers = Object.keys(data[0]);
-  
+
   // Create CSV content
   const csvContent = [
-    headers.join(','),
-    ...data.map(row => 
-      headers.map(header => {
-        const value = row[header];
-        // Handle nested objects
-        if (typeof value === 'object' && value !== null) {
-          return JSON.stringify(value).replace(/,/g, ';');
-        }
-        // Escape commas in strings
-        return typeof value === 'string' && value.includes(',') 
-          ? `"${value}"` 
-          : value;
-      }).join(',')
-    )
-  ].join('\n');
+    headers.join(","),
+    ...data.map((row) =>
+      headers
+        .map((header) => {
+          const value = row[header];
+          // Handle nested objects
+          if (typeof value === "object" && value !== null) {
+            return JSON.stringify(value).replace(/,/g, ";");
+          }
+          // Escape commas in strings
+          return typeof value === "string" && value.includes(",")
+            ? `"${value}"`
+            : value;
+        })
+        .join(",")
+    ),
+  ].join("\n");
 
   // Create blob and download
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
-  
-  link.setAttribute('href', url);
-  link.setAttribute('download', `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
-  link.style.visibility = 'hidden';
-  
+
+  link.setAttribute("href", url);
+  link.setAttribute(
+    "download",
+    `${filename}_${new Date().toISOString().split("T")[0]}.csv`
+  );
+  link.style.visibility = "hidden";
+
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -111,15 +116,27 @@ export function exportAlertsToPDF(alerts: Alert[]) {
           </tr>
         </thead>
         <tbody>
-          ${alerts.map(alert => `
+          ${alerts
+            .map(
+              (alert) => `
             <tr>
               <td>${new Date(alert.timestamp).toLocaleString()}</td>
               <td>${alert.type}</td>
-              <td class="priority-${alert.priority.toLowerCase()}">${alert.priority}</td>
+              <td class="priority-${alert.priority.toLowerCase()}">${
+                alert.priority
+              }</td>
               <td>${alert.message}</td>
-              <td>${alert.position ? `${alert.position.lat.toFixed(2)}°, ${alert.position.lng.toFixed(2)}°` : 'N/A'}</td>
+              <td>${
+                alert.position
+                  ? `${alert.position.lat.toFixed(
+                      2
+                    )}°, ${alert.position.lng.toFixed(2)}°`
+                  : "N/A"
+              }</td>
             </tr>
-          `).join('')}
+          `
+            )
+            .join("")}
         </tbody>
       </table>
     </body>
@@ -127,7 +144,7 @@ export function exportAlertsToPDF(alerts: Alert[]) {
   `;
 
   // Open in new window for printing to PDF
-  const printWindow = window.open('', '_blank');
+  const printWindow = window.open("", "_blank");
   if (printWindow) {
     printWindow.document.write(htmlContent);
     printWindow.document.close();
@@ -143,10 +160,17 @@ export function exportAnalyticsToPDF(data: {
   systemLoad: number[];
   aircraft: Aircraft[];
 }) {
-  const avgDetections = data.detectionsPerMinute.reduce((a, b) => a + b, 0) / data.detectionsPerMinute.length;
-  const avgSystemLoad = data.systemLoad.reduce((a, b) => a + b, 0) / data.systemLoad.length;
-  const avgAltitude = data.aircraft.reduce((sum, ac) => sum + ac.position.altitude, 0) / (data.aircraft.length || 1);
-  const avgSpeed = data.aircraft.reduce((sum, ac) => sum + ac.speed, 0) / (data.aircraft.length || 1);
+  const avgDetections =
+    data.detectionsPerMinute.reduce((a, b) => a + b, 0) /
+    data.detectionsPerMinute.length;
+  const avgSystemLoad =
+    data.systemLoad.reduce((a, b) => a + b, 0) / data.systemLoad.length;
+  const avgAltitude =
+    data.aircraft.reduce((sum, ac) => sum + ac.position.altitude, 0) /
+    (data.aircraft.length || 1);
+  const avgSpeed =
+    data.aircraft.reduce((sum, ac) => sum + ac.speed, 0) /
+    (data.aircraft.length || 1);
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -244,12 +268,16 @@ export function exportAnalyticsToPDF(data: {
           </tr>
         </thead>
         <tbody>
-          ${data.altitudeDistribution.map(item => `
+          ${data.altitudeDistribution
+            .map(
+              (item) => `
             <tr>
               <td>${item.altitude}</td>
               <td>${item.count}</td>
             </tr>
-          `).join('')}
+          `
+            )
+            .join("")}
         </tbody>
       </table>
 
@@ -265,7 +293,9 @@ export function exportAnalyticsToPDF(data: {
           </tr>
         </thead>
         <tbody>
-          ${data.aircraft.map(ac => `
+          ${data.aircraft
+            .map(
+              (ac) => `
             <tr>
               <td>${ac.callsign}</td>
               <td>${ac.type}</td>
@@ -273,14 +303,16 @@ export function exportAnalyticsToPDF(data: {
               <td>${ac.position.altitude}</td>
               <td>${ac.speed}</td>
             </tr>
-          `).join('')}
+          `
+            )
+            .join("")}
         </tbody>
       </table>
     </body>
     </html>
   `;
 
-  const printWindow = window.open('', '_blank');
+  const printWindow = window.open("", "_blank");
   if (printWindow) {
     printWindow.document.write(htmlContent);
     printWindow.document.close();

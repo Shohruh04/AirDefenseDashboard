@@ -1,6 +1,6 @@
-import React, { useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
-import * as THREE from 'three';
+import React, { useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import * as THREE from "three";
 
 const RadarSweep: React.FC = () => {
   const sweepRef = useRef<THREE.Mesh>(null);
@@ -19,7 +19,8 @@ const RadarSweep: React.FC = () => {
     if (glowRef.current) {
       // Glow pulsing
       const glow = Math.sin(state.clock.elapsedTime * 3) * 0.3 + 0.7;
-      (glowRef.current.material as THREE.MeshBasicMaterial).opacity = glow * 0.4;
+      (glowRef.current.material as THREE.MeshBasicMaterial).opacity =
+        glow * 0.4;
     }
   });
 
@@ -49,7 +50,11 @@ const RadarSweep: React.FC = () => {
       </mesh>
 
       {/* Range rings */}
-      <mesh ref={ringRef} position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh
+        ref={ringRef}
+        position={[0, 0.1, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+      >
         <ringGeometry args={[48, 52, 32]} />
         <meshBasicMaterial
           color="#00ff88"
