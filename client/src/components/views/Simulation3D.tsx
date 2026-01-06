@@ -1,17 +1,16 @@
 import React, { Suspense, useState, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, PerspectiveCamera, Stars } from "@react-three/drei";
+import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import { useSettings } from "../../lib/stores/useSettings";
 import AircraftModel from "../three/AircraftModel";
 import RadarSweep from "../three/RadarSweep";
-import RadarParticles from "../three/RadarParticles";
 import MissileModel from "../three/MissileModel";
 import Terrain from "../three/Terrain";
-import RangeIndicator from "../three/RangeIndicator";
+import Sky from "../three/Sky";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
-import { Sun, Moon, AlertCircle, Target, X, Crosshair, Plane } from "lucide-react";
+import { Sun, Moon, AlertCircle, Target, X, Crosshair, Plane, Play, Square } from "lucide-react";
 import { useSimulation } from "../../lib/stores/useSimulation";
 import type { Aircraft } from "../../lib/simulation";
 import { getThreatLevelColor, getThreatLevelLabel } from "../../lib/simulation";
@@ -30,7 +29,7 @@ const checkWebGLSupport = (): boolean => {
 
 const Simulation3D: React.FC = () => {
   const { isDayMode, toggleDayMode } = useSettings();
-  const { aircraft, missiles, launchMissile, systemStatus } = useSimulation();
+  const { aircraft, missiles, launchMissile, systemStatus, isRunning, startSimulation, stopSimulation } = useSimulation();
   const [webglError, setWebglError] = useState(false);
   const [webglSupported, setWebglSupported] = useState(true);
   const [selectedAircraft, setSelectedAircraft] = useState<Aircraft | null>(null);
@@ -135,8 +134,29 @@ const Simulation3D: React.FC = () => {
       {/* Controls Overlay */}
       <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
         <div className="flex gap-2">
+          <Button
+            variant={isRunning ? "destructive" : "default"}
+            size="sm"
+            onClick={isRunning ? stopSimulation : startSimulation}
+            className="bg-background/80 backdrop-blur"
+          >
+            {isRunning ? (
+              <>
+                <Square className="h-4 w-4 mr-1" />
+                Stop
+              </>
+            ) : (
+              <>
+                <Play className="h-4 w-4 mr-1" />
+                Start
+              </>
+            )}
+          </Button>
           <Badge variant="outline" className="bg-background/80 backdrop-blur">
             {aircraft.length} Aircraft
+          </Badge>
+          <Badge variant="outline" className="bg-background/80 backdrop-blur">
+            {missiles.filter(m => m.active).length} Missiles
           </Badge>
           <Button
             variant="outline"
@@ -252,11 +272,13 @@ const Simulation3D: React.FC = () => {
         gl={{
           antialias: false,
           alpha: false,
-          powerPreference: "default",
+          powerPreference: "high-performance",
           failIfMajorPerformanceCaveat: false,
         }}
+        frameloop="always"
+        dpr={[1, 1.5]}
         onCreated={(state) => {
-          state.gl.setClearColor("#87CEEB");
+          state.gl.setClearColor(isDayMode ? "#87CEEB" : "#0a0a1a");
         }}
         onError={(error) => {
           console.error("WebGL Error:", error);
@@ -265,81 +287,40 @@ const Simulation3D: React.FC = () => {
       >
         <PerspectiveCamera
           makeDefault
-          position={[0, 50, 100]}
-          fov={60}
-          near={0.1}
-          far={2000}
+          position={[0, 60, 120]}
+          fov={55}
+          near={1}
+          far={1000}
         />
 
         <OrbitControls
           enablePan={true}
           enableZoom={true}
           enableRotate={true}
-          minDistance={20}
-          maxDistance={500}
-          maxPolarAngle={Math.PI / 2.2}
+          minDistance={30}
+          maxDistance={400}
+          maxPolarAngle={Math.PI / 2.1}
+          enableDamping={true}
+          dampingFactor={0.05}
         />
 
-        {/* Lighting */}
-        {isDayMode ? (
-          <>
-            <ambientLight intensity={0.6} />
-            <directionalLight
-              position={[100, 100, 50]}
-              intensity={1}
-              castShadow
-              shadow-mapSize-width={2048}
-              shadow-mapSize-height={2048}
-            />
-          </>
-        ) : (
-          <>
-            <ambientLight intensity={0.2} color="#404080" />
-            <directionalLight
-              position={[50, 80, 30]}
-              intensity={0.3}
-              color="#8080ff"
-            />
-            <pointLight
-              position={[0, 20, 0]}
-              intensity={0.5}
-              color="#ff8080"
-              distance={200}
-            />
-          </>
-        )}
-
-        {/* Background */}
-        {isDayMode ? (
-          <color attach="background" args={["#87CEEB"]} />
-        ) : (
-          <>
-            <color attach="background" args={["#000011"]} />
-            <Stars
-              radius={300}
-              depth={60}
-              count={1000}
-              factor={7}
-              saturation={0}
-              fade={true}
-            />
-          </>
-        )}
+        {/* Simplified Lighting */}
+        <ambientLight intensity={isDayMode ? 0.5 : 0.15} />
+        <directionalLight
+          position={isDayMode ? [100, 80, 50] : [50, 60, 30]}
+          intensity={isDayMode ? 0.8 : 0.2}
+          color={isDayMode ? "#ffffff" : "#6080ff"}
+        />
 
         <Suspense fallback={null}>
+          {/* Sky */}
+          <Sky isDayMode={isDayMode} />
+
           {/* Terrain */}
           <Terrain isDayMode={isDayMode} />
 
-          {/* Radar range indicators */}
-          <RangeIndicator radius={50} color="#3b82f6" opacity={0.1} />
-          <RangeIndicator radius={100} color="#f59e0b" opacity={0.08} />
-          <RangeIndicator radius={150} color="#ef4444" opacity={0.06} />
-
           {/* Radar sweep */}
           <RadarSweep />
-
-          {/* Radar particles effect */}
-          <RadarParticles />
 
           {/* Aircraft */}
           {aircraft.map((ac) => (
@@ -347,7 +328,8 @@ const Simulation3D: React.FC = () => {
               key={ac.id}
               aircraft={ac}
               isSelected={selectedAircraft?.id === ac.id}
-              onSelect={handleSelectAircraft}
+              onSelect={() => handleSelectAircraft(ac)}
+              onDeselect={handleDeselectAircraft}
             />
           ))}
 
