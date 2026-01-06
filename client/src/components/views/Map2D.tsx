@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from "react";
 import { useSimulation } from "../../lib/stores/useSimulation";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { getThreatLevelColor, getThreatLevelLabel } from "../../lib/simulation";
 
@@ -15,9 +14,10 @@ const Map2D: React.FC = () => {
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const missileMarkersRef = useRef<any[]>([]);
   const radarZonesRef = useRef<any[]>([]);
 
-  const { aircraft } = useSimulation();
+  const { aircraft, missiles } = useSimulation();
 
   useEffect(() => {
     if (!mapRef.current || leafletMapRef.current) return;
@@ -101,6 +101,10 @@ const Map2D: React.FC = () => {
         <div style="margin: 4px 0;"><span style="color: #3b82f6;">●</span> Neutral</div>
         <div style="margin: 4px 0;"><span style="color: #f59e0b;">●</span> Suspect</div>
         <div style="margin: 4px 0;"><span style="color: #ef4444;">●</span> Hostile</div>
+        <hr style="margin: 8px 0; border-color: #e5e7eb;" />
+        <h4 style="margin: 0 0 8px 0; font-weight: bold;">Missiles</h4>
+        <div style="margin: 4px 0;"><span style="color: #8b5cf6;">▲</span> Active Missile</div>
+        <div style="margin: 4px 0;"><span style="color: #8b5cf6;">- -</span> Trajectory</div>
       `;
       return div;
     };
@@ -181,6 +185,129 @@ const Map2D: React.FC = () => {
     });
   }, [aircraft]);
 
+  // Update missile markers
+  useEffect(() => {
+    if (!leafletMapRef.current) return;
+
+    const L = window.L;
+    const map = leafletMapRef.current;
+
+    // Clear existing missile markers
+    missileMarkersRef.current.forEach((marker) => map.removeLayer(marker));
+    missileMarkersRef.current = [];
+
+    // Add new missile markers
+    const activeMissiles = missiles.filter((m) => m.active);
+
+    activeMissiles.forEach((missile) => {
+      // Missile trajectory line (from launch to target)
+      const trajectoryLine = L.polyline(
+        [
+          [missile.startPosition.lat, missile.startPosition.lng],
+          [missile.targetPosition.lat, missile.targetPosition.lng],
+        ],
+        {
+          color: "#8b5cf6",
+          weight: 2,
+          opacity: 0.4,
+          dashArray: "10, 10",
+        }
+      ).addTo(map);
+      missileMarkersRef.current.push(trajectoryLine);
+
+      // Missile current position (animated trail)
+      const trailLine = L.polyline(
+        [
+          [missile.startPosition.lat, missile.startPosition.lng],
+          [missile.currentPosition.lat, missile.currentPosition.lng],
+        ],
+        {
+          color: "#8b5cf6",
+          weight: 3,
+          opacity: 0.8,
+        }
+      ).addTo(map);
+      missileMarkersRef.current.push(trailLine);
+
+      // Missile marker (triangle shape using DivIcon)
+      const missileIcon = L.divIcon({
+        className: "missile-marker",
+        html: `
+          <div style="
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 16px solid #8b5cf6;
+            filter: drop-shadow(0 0 4px #8b5cf6);
+            transform: rotate(${calculateMissileRotation(missile)}deg);
+            transform-origin: center center;
+          "></div>
+        `,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      });
+
+      const missileMarker = L.marker(
+        [missile.currentPosition.lat, missile.currentPosition.lng],
+        { icon: missileIcon }
+      );
+
+      // Find target aircraft for popup info
+      const targetAircraft = aircraft.find((ac) => ac.id === missile.targetId);
+      const popupContent = `
+        <div style="font-family: monospace;">
+          <h4 style="margin: 0 0 8px 0; color: #8b5cf6;">MISSILE</h4>
+          <div><strong>Target:</strong> ${targetAircraft?.callsign || missile.targetId}</div>
+          <div><strong>Speed:</strong> ${missile.speed} km/h</div>
+          <div><strong>Altitude:</strong> ${missile.currentPosition.altitude.toLocaleString()}m</div>
+          <div><strong>Status:</strong> <span style="color: #22c55e; font-weight: bold;">ACTIVE</span></div>
+        </div>
+      `;
+
+      missileMarker.bindPopup(popupContent);
+      missileMarker.addTo(map);
+      missileMarkersRef.current.push(missileMarker);
+
+      // Target indicator (pulsing circle around target)
+      const targetIndicator = L.circleMarker(
+        [missile.targetPosition.lat, missile.targetPosition.lng],
+        {
+          radius: 12,
+          fillColor: "#ef4444",
+          color: "#ef4444",
+          weight: 2,
+          opacity: 0.6,
+          fillOpacity: 0.2,
+          className: "pulse-marker",
+        }
+      ).addTo(map);
+      missileMarkersRef.current.push(targetIndicator);
+
+      // Launch point indicator
+      const launchIndicator = L.circleMarker(
+        [missile.startPosition.lat, missile.startPosition.lng],
+        {
+          radius: 6,
+          fillColor: "#22c55e",
+          color: "#22c55e",
+          weight: 2,
+          opacity: 0.8,
+          fillOpacity: 0.5,
+        }
+      ).addTo(map);
+      missileMarkersRef.current.push(launchIndicator);
+    });
+  }, [missiles, aircraft]);
+
+  // Helper function to calculate missile rotation based on heading
+  function calculateMissileRotation(missile: typeof missiles[0]): number {
+    const dx = missile.targetPosition.lng - missile.currentPosition.lng;
+    const dy = missile.targetPosition.lat - missile.currentPosition.lat;
+    const angle = Math.atan2(dx, dy) * (180 / Math.PI);
+    return angle;
+  }
+
   return (
     <div className="w-full h-full flex flex-col">
       <div className="p-4 border-b border-border">
@@ -193,6 +320,11 @@ const Map2D: React.FC = () => {
           </div>
           <div className="flex gap-2">
             <Badge variant="outline">{aircraft.length} Aircraft Tracked</Badge>
+            {missiles.filter((m) => m.active).length > 0 && (
+              <Badge variant="destructive">
+                {missiles.filter((m) => m.active).length} Active Missiles
+              </Badge>
+            )}
           </div>
         </div>
       </div>

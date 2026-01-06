@@ -10,6 +10,7 @@ interface HistoricalSnapshot {
     aircraftCount: number;
     threatLevel: 'LOW' | 'MEDIUM' | 'HIGH';
     systemReadiness: number;
+    missileReady: number;
   };
   analytics: {
     detectionsPerMinute: number[];

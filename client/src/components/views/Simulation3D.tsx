@@ -11,8 +11,10 @@ import RangeIndicator from "../three/RangeIndicator";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
-import { Sun, Moon, AlertCircle } from "lucide-react";
+import { Sun, Moon, AlertCircle, Target, X, Crosshair, Plane } from "lucide-react";
 import { useSimulation } from "../../lib/stores/useSimulation";
+import type { Aircraft } from "../../lib/simulation";
+import { getThreatLevelColor, getThreatLevelLabel } from "../../lib/simulation";
 
 // Check if WebGL is available
 const checkWebGLSupport = (): boolean => {
@@ -28,9 +30,11 @@ const checkWebGLSupport = (): boolean => {
 
 const Simulation3D: React.FC = () => {
   const { isDayMode, toggleDayMode } = useSettings();
-  const { aircraft, missiles } = useSimulation();
+  const { aircraft, missiles, launchMissile, systemStatus } = useSimulation();
   const [webglError, setWebglError] = useState(false);
   const [webglSupported, setWebglSupported] = useState(true);
+  const [selectedAircraft, setSelectedAircraft] = useState<Aircraft | null>(null);
+  const [isLaunching, setIsLaunching] = useState(false);
 
   useEffect(() => {
     const supported = checkWebGLSupport();
@@ -39,6 +43,50 @@ const Simulation3D: React.FC = () => {
       setWebglError(true);
     }
   }, []);
+
+  // Update selected aircraft reference when aircraft updates
+  useEffect(() => {
+    if (selectedAircraft) {
+      const updated = aircraft.find(ac => ac.id === selectedAircraft.id);
+      if (updated) {
+        setSelectedAircraft(updated);
+      } else {
+        // Aircraft was destroyed or removed
+        setSelectedAircraft(null);
+      }
+    }
+  }, [aircraft]);
+
+  const handleSelectAircraft = (ac: Aircraft) => {
+    setSelectedAircraft(ac);
+  };
+
+  const handleDeselectAircraft = () => {
+    setSelectedAircraft(null);
+  };
+
+  const handleLaunchMissile = async () => {
+    if (!selectedAircraft || isLaunching) return;
+
+    setIsLaunching(true);
+    try {
+      // Call API to launch missile
+      const response = await fetch('/api/missiles/launch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetId: selectedAircraft.id }),
+      });
+
+      if (response.ok) {
+        // Missile launched successfully
+        console.log('Missile launched at', selectedAircraft.callsign);
+      }
+    } catch (error) {
+      console.error('Failed to launch missile:', error);
+    } finally {
+      setIsLaunching(false);
+    }
+  };
 
   // Fallback 2D visualization when WebGL fails
   if (webglError) {
@@ -112,7 +160,91 @@ const Simulation3D: React.FC = () => {
         <div>• Left Click + Drag: Rotate view</div>
         <div>• Right Click + Drag: Pan</div>
         <div>• Scroll: Zoom in/out</div>
+        <div>• Click Aircraft: Select target</div>
       </div>
+
+      {/* Selected Aircraft Panel */}
+      {selectedAircraft && (
+        <div className="absolute top-4 right-4 z-10 w-72">
+          <Card className="bg-background/95 backdrop-blur border-2" style={{ borderColor: getThreatLevelColor(selectedAircraft.threatLevel) }}>
+            <CardContent className="p-4">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-2">
+                  <Plane className="h-5 w-5" style={{ color: getThreatLevelColor(selectedAircraft.threatLevel) }} />
+                  <span className="font-bold text-lg">{selectedAircraft.callsign}</span>
+                </div>
+                <Button variant="ghost" size="sm" onClick={handleDeselectAircraft} className="h-6 w-6 p-0">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="space-y-2 text-sm mb-4">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Type:</span>
+                  <span className="font-medium">{selectedAircraft.type}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Threat Level:</span>
+                  <Badge
+                    variant="outline"
+                    style={{
+                      borderColor: getThreatLevelColor(selectedAircraft.threatLevel),
+                      color: getThreatLevelColor(selectedAircraft.threatLevel),
+                    }}
+                  >
+                    {getThreatLevelLabel(selectedAircraft.threatLevel)}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Altitude:</span>
+                  <span className="font-medium">{selectedAircraft.position.altitude.toLocaleString()}m</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Speed:</span>
+                  <span className="font-medium">{selectedAircraft.speed} km/h</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Heading:</span>
+                  <span className="font-medium">{selectedAircraft.heading}°</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Position:</span>
+                  <span className="font-medium text-xs">
+                    {selectedAircraft.position.lat.toFixed(2)}°N, {selectedAircraft.position.lng.toFixed(2)}°E
+                  </span>
+                </div>
+              </div>
+
+              {/* Launch Missile Button */}
+              {(selectedAircraft.threatLevel === "HOSTILE" || selectedAircraft.threatLevel === "SUSPECT") && (
+                <Button
+                  className="w-full"
+                  variant="destructive"
+                  onClick={handleLaunchMissile}
+                  disabled={isLaunching || systemStatus.missileReady <= 0}
+                >
+                  <Target className="h-4 w-4 mr-2" />
+                  {isLaunching ? "Launching..." : `Launch Missile (${systemStatus.missileReady} ready)`}
+                </Button>
+              )}
+
+              {selectedAircraft.threatLevel === "FRIENDLY" && (
+                <div className="text-center text-sm text-green-600 dark:text-green-400">
+                  <Crosshair className="h-4 w-4 inline mr-1" />
+                  Friendly - No action required
+                </div>
+              )}
+
+              {selectedAircraft.threatLevel === "NEUTRAL" && (
+                <div className="text-center text-sm text-blue-600 dark:text-blue-400">
+                  <Crosshair className="h-4 w-4 inline mr-1" />
+                  Neutral - Monitoring
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* 3D Canvas */}
       <Canvas
@@ -211,7 +343,12 @@ const Simulation3D: React.FC = () => {
 
           {/* Aircraft */}
           {aircraft.map((ac) => (
-            <AircraftModel key={ac.id} aircraft={ac} />
+            <AircraftModel
+              key={ac.id}
+              aircraft={ac}
+              isSelected={selectedAircraft?.id === ac.id}
+              onSelect={handleSelectAircraft}
+            />
           ))}
 
           {/* Missiles */}

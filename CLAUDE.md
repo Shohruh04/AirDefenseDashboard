@@ -11,7 +11,7 @@ This is an Air Defense Dashboard - a real-time aircraft tracking and threat moni
 ### Running the Application
 - `npm run dev` - Start development server with hot reload (runs on port 5000)
 - `npm run build` - Build both client (Vite) and server (esbuild) for production
-- `npm start` - Run production build
+- `npm start` - Run production build (Linux/Mac only; on Windows use `set NODE_ENV=production && node dist/index.js`)
 - `npm run check` - Type check TypeScript files without emitting
 
 ### Database Commands

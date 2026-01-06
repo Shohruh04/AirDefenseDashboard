@@ -12,6 +12,7 @@ interface SimulationState {
     aircraftCount: number;
     threatLevel: 'LOW' | 'MEDIUM' | 'HIGH';
     systemReadiness: number;
+    missileReady: number;
   };
   analytics: {
     detectionsPerMinute: number[];
@@ -47,6 +48,7 @@ export const useSimulation = create<SimulationState>()(
       aircraftCount: 0,
       threatLevel: 'LOW',
       systemReadiness: 95.2,
+      missileReady: 12,
     },
     analytics: {
       detectionsPerMinute: Array(20).fill(0).map(() => Math.floor(Math.random() * 15) + 5),
@@ -238,6 +240,7 @@ export const useSimulation = create<SimulationState>()(
       const state = get();
       const target = state.aircraft.find(ac => ac.id === targetId);
       if (!target) return;
+      if (state.systemStatus.missileReady <= 0) return;
 
       // Radar center position
       const radarPosition = {
@@ -258,7 +261,11 @@ export const useSimulation = create<SimulationState>()(
       };
 
       set((state) => ({
-        missiles: [...state.missiles, missile]
+        missiles: [...state.missiles, missile],
+        systemStatus: {
+          ...state.systemStatus,
+          missileReady: state.systemStatus.missileReady - 1,
+        }
       }));
 
       // Add alert for missile launch

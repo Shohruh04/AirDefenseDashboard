@@ -114,3 +114,38 @@ canvas {
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--border));
 }
+
+/* Missile marker styles */
+.missile-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Pulse animation for target indicators */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+}
+
+.pulse-marker {
+  animation: pulse-ring 1.5s ease-in-out infinite;
+}
+
+/* Leaflet popup styles for missiles */
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+}
+
+.leaflet-popup-content {
+  margin: 12px;
+}

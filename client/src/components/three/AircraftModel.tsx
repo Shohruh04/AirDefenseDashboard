@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from "react";
-import { useFrame } from "@react-three/fiber";
+import React, { useRef, useEffect, useState } from "react";
+import { useFrame, ThreeEvent } from "@react-three/fiber";
 import { Text, Billboard } from "@react-three/drei";
 import * as THREE from "three";
 import type { Aircraft } from "../../lib/simulation";
@@ -7,9 +7,12 @@ import { getThreatLevelColor, getThreatLevelLabel } from "../../lib/simulation";
 
 interface AircraftModelProps {
   aircraft: Aircraft;
+  isSelected?: boolean;
+  onSelect?: (aircraft: Aircraft) => void;
 }
 
-const AircraftModel: React.FC<AircraftModelProps> = ({ aircraft }) => {
+const AircraftModel: React.FC<AircraftModelProps> = ({ aircraft, isSelected, onSelect }) => {
+  const [hovered, setHovered] = useState(false);
   const meshRef = useRef<THREE.Group>(null);
   const previousPosition = useRef({
     lat: aircraft.position.lat,
@@ -53,24 +56,48 @@ const AircraftModel: React.FC<AircraftModelProps> = ({ aircraft }) => {
   // Aircraft color based on threat level
   const aircraftColor = getThreatLevelColor(aircraft.threatLevel);
 
+  // Scale effect for selection/hover
+  const scale = isSelected ? 1.3 : hovered ? 1.15 : 1;
+
+  const handleClick = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    if (onSelect) {
+      onSelect(aircraft);
+    }
+  };
+
   return (
-    <group ref={meshRef}>
+    <group
+      ref={meshRef}
+      onClick={handleClick}
+      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = 'pointer'; }}
+      onPointerOut={() => { setHovered(false); document.body.style.cursor = 'default'; }}
+      scale={scale}
+    >
+      {/* Selection ring */}
+      {isSelected && (
+        <mesh position={[0, -0.5, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[2, 2.3, 32]} />
+          <meshBasicMaterial color="#ffffff" transparent opacity={0.8} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+
       {/* Aircraft body */}
       <mesh position={[0, 0, 0]} castShadow>
         <cylinderGeometry args={[0.2, 0.5, 2, 8]} />
-        <meshLambertMaterial color={aircraftColor} />
+        <meshLambertMaterial color={aircraftColor} emissive={isSelected ? aircraftColor : "#000000"} emissiveIntensity={isSelected ? 0.3 : 0} />
       </mesh>
 
       {/* Wings */}
       <mesh position={[0, 0, 0]} castShadow>
         <boxGeometry args={[3, 0.1, 0.5]} />
-        <meshLambertMaterial color={aircraftColor} />
+        <meshLambertMaterial color={aircraftColor} emissive={isSelected ? aircraftColor : "#000000"} emissiveIntensity={isSelected ? 0.3 : 0} />
       </mesh>
 
       {/* Tail */}
       <mesh position={[0, 0.3, -0.8]} castShadow>
         <boxGeometry args={[0.1, 0.6, 0.3]} />
-        <meshLambertMaterial color={aircraftColor} />
+        <meshLambertMaterial color={aircraftColor} emissive={isSelected ? aircraftColor : "#000000"} emissiveIntensity={isSelected ? 0.3 : 0} />
       </mesh>
 
       {/* Aircraft label */}
