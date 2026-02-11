@@ -9,10 +9,12 @@ import {
   type Aircraft,
   type Alert,
   type Missile,
+  type Explosion,
   type PredictedPosition,
   type PriorityTarget,
 } from '../simulation';
 import { usePlayback } from './usePlayback';
+import { useAudio } from './useAudio';
 
 export interface AiMetrics {
   classificationsPerSecond: number;
@@ -41,6 +43,7 @@ interface SimulationState {
   isRunning: boolean;
   aiMetrics: AiMetrics;
   engagementQueue: PriorityTarget[];
+  explosions: Explosion[];
 
   // Actions
   startSimulation: () => void;
@@ -96,6 +99,7 @@ export const useSimulation = create<SimulationState>()(
       threatDistribution: { FRIENDLY: 0, NEUTRAL: 0, SUSPECT: 0, HOSTILE: 0 },
     },
     engagementQueue: [],
+    explosions: [],
 
     startSimulation: () => {
       const state = get();
@@ -294,6 +298,7 @@ export const useSimulation = create<SimulationState>()(
       // Clear AI tracking maps
       previousHeadings.clear();
       previousPredictions.clear();
+      set({ explosions: [] });
     },
 
     updateAircraft: (aircraft) => set({ aircraft }),
@@ -409,9 +414,19 @@ export const useSimulation = create<SimulationState>()(
               message: `AI confirmed: ${target.callsign} neutralized — threat eliminated`,
               position: { lat: target.position.lat, lng: target.position.lng },
             });
+            // Create explosion at impact point
+            const explosion: Explosion = {
+              id: `EXP${Date.now()}_${missile.id}`,
+              position: { ...target.position },
+              timestamp: Date.now(),
+              callsign: target.callsign,
+            };
             set((s) => ({
               systemStatus: { ...s.systemStatus, missileReady: Math.min(30, s.systemStatus.missileReady + 1) },
+              explosions: [...s.explosions, explosion],
             }));
+            // Play hit sound
+            try { useAudio.getState().playHit(); } catch (_) { /* audio may not be ready */ }
             return { ...missile, active: false };
           }
 
@@ -430,6 +445,12 @@ export const useSimulation = create<SimulationState>()(
         .filter(missile => missile.active || Date.now() - missile.launchTime < 10000);
 
       set({ missiles: updatedMissiles });
+
+      // Clean up expired explosions (older than 2s)
+      const now = Date.now();
+      set((s) => ({
+        explosions: s.explosions.filter(e => now - e.timestamp < 2000),
+      }));
     },
   }))
 );

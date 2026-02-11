@@ -90,6 +90,13 @@ export interface Missile {
   active: boolean;
 }
 
+export interface Explosion {
+  id: string;
+  position: { lat: number; lng: number; altitude: number };
+  timestamp: number;
+  callsign: string;
+}
+
 // ─── Constants ─────────────────────────────────────────────────────────────
 
 export const RADAR_BASE = { lat: 50.0, lng: 10.0 };

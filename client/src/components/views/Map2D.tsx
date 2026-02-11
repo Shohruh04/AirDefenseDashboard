@@ -7,7 +7,7 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { getThreatLevelColor, getThreatLevelLabel } from "../../lib/simulation";
-import type { Aircraft, Missile } from "../../lib/simulation";
+import type { Aircraft, Missile, Explosion } from "../../lib/simulation";
 import { Play, Square, Radar, Plane, Zap, Brain } from "lucide-react";
 
 // Radar center coordinates
@@ -249,6 +249,53 @@ const MissileTrack: React.FC<{ missile: Missile }> = React.memo(({ missile }) =>
 
 MissileTrack.displayName = "MissileTrack";
 
+// Explosion marker — animated expanding circles at impact point
+const ExplosionMarker: React.FC<{ explosion: Explosion }> = React.memo(({ explosion }) => {
+  const [, setTick] = React.useState(0);
+  const position: [number, number] = [explosion.position.lat, explosion.position.lng];
+
+  // Re-render every 100ms for animation
+  React.useEffect(() => {
+    const timer = setInterval(() => setTick(t => t + 1), 100);
+    return () => clearInterval(timer);
+  }, []);
+
+  const elapsed = Date.now() - explosion.timestamp;
+  const progress = Math.min(elapsed / 2000, 1);
+  if (progress >= 1) return null;
+
+  const outerRadius = 500 + progress * 8000;
+  const innerRadius = 500 + progress * 3000;
+  const opacity = Math.max(0, 0.7 - progress);
+
+  return (
+    <>
+      {/* Outer shockwave */}
+      <Circle
+        center={position}
+        radius={outerRadius}
+        pathOptions={{ color: "#ff4400", weight: 2, opacity: opacity * 0.5, fillColor: "#ff6600", fillOpacity: opacity * 0.1 }}
+      />
+      {/* Inner fireball */}
+      <Circle
+        center={position}
+        radius={innerRadius}
+        pathOptions={{ color: "#ffaa00", weight: 0, fillColor: "#ff4400", fillOpacity: opacity * 0.4 }}
+      />
+      {/* Core flash */}
+      {progress < 0.3 && (
+        <Circle
+          center={position}
+          radius={800}
+          pathOptions={{ color: "#ffffff", weight: 0, fillColor: "#ffff00", fillOpacity: 0.6 * (1 - progress / 0.3) }}
+        />
+      )}
+    </>
+  );
+});
+
+ExplosionMarker.displayName = "ExplosionMarker";
+
 // Invalidate map size when container resizes
 function MapResizeHandler() {
   const map = useMap();
@@ -261,7 +308,7 @@ function MapResizeHandler() {
 }
 
 const Map2D: React.FC = () => {
-  const { aircraft, missiles, isRunning, startSimulation, stopSimulation, systemStatus, engagementQueue } = useSimulation();
+  const { aircraft, missiles, isRunning, startSimulation, stopSimulation, systemStatus, engagementQueue, explosions } = useSimulation();
   const [selectedAircraft, setSelectedAircraft] = React.useState<string | null>(null);
 
   const handleSelect = useCallback((id: string) => setSelectedAircraft(id), []);
@@ -366,6 +413,11 @@ const Map2D: React.FC = () => {
           {/* Active missiles */}
           {activeMissiles.map((missile) => (
             <MissileTrack key={missile.id} missile={missile} />
+          ))}
+
+          {/* Explosions */}
+          {explosions.map((explosion) => (
+            <ExplosionMarker key={explosion.id} explosion={explosion} />
           ))}
         </MapContainer>
 

@@ -16,6 +16,7 @@ import DroneModel from "../three/DroneModel";
 import RadarSweep from "../three/RadarSweep";
 import RadarParticles from "../three/RadarParticles";
 import MissileModel from "../three/MissileModel";
+import ExplosionEffect from "../three/ExplosionEffect";
 import Terrain from "../three/Terrain";
 import Sky from "../three/Sky";
 import { Badge } from "../ui/badge";
@@ -89,6 +90,7 @@ const Simulation3D: React.FC = () => {
     stopSimulation,
     engagementQueue,
     aiMetrics,
+    explosions,
   } = useSimulation();
   const [webglError, setWebglError] = useState(false);
   const [selectedAircraft, setSelectedAircraft] = useState<Aircraft | null>(null);
@@ -469,6 +471,11 @@ const Simulation3D: React.FC = () => {
           {/* Missiles */}
           {missiles.map((missile) => (
             <MissileModel key={missile.id} missile={missile} />
+          ))}
+
+          {/* Explosions */}
+          {explosions.map((explosion) => (
+            <ExplosionEffect key={explosion.id} explosion={explosion} />
           ))}
 
           <EffectComposer>
