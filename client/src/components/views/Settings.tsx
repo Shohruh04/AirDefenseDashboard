@@ -16,6 +16,7 @@ import {
   Info,
   SkipBack,
   Rewind,
+  Brain,
 } from "lucide-react";
 import { useSettings } from "../../lib/stores/useSettings";
 import { useSimulation } from "../../lib/stores/useSimulation";
@@ -27,10 +28,16 @@ const Settings: React.FC = () => {
     refreshRate,
     viewMode,
     isDayMode,
+    aiEnabled,
+    anomalySensitivity,
+    predictionHorizon,
     toggleSimulation,
     setRefreshRate,
     setViewMode,
     toggleDayMode,
+    setAiEnabled,
+    setAnomalySensitivity,
+    setPredictionHorizon,
   } = useSettings();
 
   const { startSimulation, stopSimulation, isRunning } = useSimulation();
@@ -55,10 +62,10 @@ const Settings: React.FC = () => {
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-foreground mb-2">
-            System Settings
+            AI System Settings
           </h2>
           <p className="text-muted-foreground">
-            Configure simulation parameters and display preferences
+            Configure AI parameters, simulation settings, and display preferences
           </p>
         </div>
 
@@ -131,6 +138,93 @@ const Settings: React.FC = () => {
                 <div className="flex justify-between text-xs text-muted-foreground mt-1">
                   <span>1s (Fast)</span>
                   <span>10s (Slow)</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* AI Configuration */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-purple-500" />
+              AI Configuration
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label className="text-base font-medium">
+                  AI Classification Engine
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Enable AI-powered threat assessment and classification
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Badge
+                  variant={aiEnabled ? "default" : "secondary"}
+                  className={aiEnabled ? "bg-purple-600" : ""}
+                >
+                  {aiEnabled ? "Active" : "Disabled"}
+                </Badge>
+                <Switch checked={aiEnabled} onCheckedChange={setAiEnabled} />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-medium">
+                  Anomaly Detection Sensitivity: {anomalySensitivity}
+                </Label>
+                <Badge variant="outline">
+                  {anomalySensitivity <= 3 ? "Low" : anomalySensitivity <= 7 ? "Medium" : "High"}
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                How sensitive the AI is to flight path deviations (1-10)
+              </p>
+              <div className="px-2">
+                <Slider
+                  value={[anomalySensitivity]}
+                  onValueChange={(v) => setAnomalySensitivity(v[0])}
+                  max={10}
+                  min={1}
+                  step={1}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                  <span>1 (Low)</span>
+                  <span>10 (High)</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-medium">
+                  Prediction Horizon: {predictionHorizon}s
+                </Label>
+                <Badge variant="outline">
+                  {predictionHorizon <= 30 ? "Short" : predictionHorizon <= 70 ? "Medium" : "Long"} Range
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                How far ahead the AI predicts flight paths (10-120 seconds)
+              </p>
+              <div className="px-2">
+                <Slider
+                  value={[predictionHorizon]}
+                  onValueChange={(v) => setPredictionHorizon(v[0])}
+                  max={120}
+                  min={10}
+                  step={10}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                  <span>10s (Short)</span>
+                  <span>120s (Long)</span>
                 </div>
               </div>
             </div>
@@ -362,13 +456,13 @@ const Settings: React.FC = () => {
               <Info className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
               <div className="text-sm">
                 <p className="font-medium text-blue-800 dark:text-blue-200 mb-1">
-                  Educational Simulation Settings
+                  AI Simulation Settings
                 </p>
                 <p className="text-blue-700 dark:text-blue-300">
-                  This is a simulated educational environment. All settings
-                  control artificially generated data and do not affect real air
-                  defense systems. The simulation is designed for learning
-                  purposes only.
+                  This is an AI-powered simulated educational environment. AI
+                  configuration controls the classification engine, anomaly
+                  detection, and predictive modeling parameters. All data is
+                  artificially generated for learning purposes only.
                 </p>
               </div>
             </div>

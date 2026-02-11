@@ -149,7 +149,7 @@ const DroneModel: React.FC<DroneModelProps> = React.memo(({
             whiteSpace: "nowrap",
             border: `1px solid ${color}`,
           }}>
-            {aircraft.callsign} [DRONE]
+            {aircraft.callsign} [DRONE] {aircraft.aiClassification?.confidenceScore?.toFixed(0) ?? '--'}%
           </div>
         </Html>
       )}

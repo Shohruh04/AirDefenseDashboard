@@ -250,7 +250,7 @@ const AircraftModel: React.FC<AircraftModelProps> = React.memo(({
             border: `1px solid ${color}`,
             boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
           }}>
-            {aircraft.callsign} | {aircraft.type}
+            {aircraft.callsign} | {aircraft.type} | {aircraft.aiClassification?.confidenceScore?.toFixed(0) ?? '--'}%
           </div>
         </Html>
       )}

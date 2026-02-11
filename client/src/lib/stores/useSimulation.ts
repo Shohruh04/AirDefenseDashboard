@@ -1,7 +1,26 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { generateRandomAircraft, generateRandomAlert, type Aircraft, type Alert, type Missile } from '../simulation';
+import {
+  generateRandomAircraft,
+  generateSmartAlert,
+  classifyAircraftThreat,
+  detectAnomaly,
+  buildPriorityQueue,
+  type Aircraft,
+  type Alert,
+  type Missile,
+  type PredictedPosition,
+  type PriorityTarget,
+} from '../simulation';
 import { usePlayback } from './usePlayback';
+
+export interface AiMetrics {
+  classificationsPerSecond: number;
+  averageConfidence: number;
+  modelAccuracy: number;
+  anomaliesDetected: number;
+  threatDistribution: Record<Aircraft["threatLevel"], number>;
+}
 
 interface SimulationState {
   aircraft: Aircraft[];
@@ -20,7 +39,9 @@ interface SimulationState {
     systemLoad: number[];
   };
   isRunning: boolean;
-  
+  aiMetrics: AiMetrics;
+  engagementQueue: PriorityTarget[];
+
   // Actions
   startSimulation: () => void;
   stopSimulation: () => void;
@@ -37,6 +58,10 @@ let alertInterval: NodeJS.Timeout | null = null;
 let analyticsInterval: NodeJS.Timeout | null = null;
 let missileInterval: NodeJS.Timeout | null = null;
 let missileLaunchInterval: NodeJS.Timeout | null = null;
+
+// Module-level maps for AI classification tracking
+const previousHeadings = new Map<string, number>();
+const previousPredictions = new Map<string, PredictedPosition[]>();
 
 export const useSimulation = create<SimulationState>()(
   subscribeWithSelector((set, get) => ({
@@ -63,6 +88,14 @@ export const useSimulation = create<SimulationState>()(
       systemLoad: Array(20).fill(0).map(() => Math.floor(Math.random() * 40) + 30),
     },
     isRunning: false,
+    aiMetrics: {
+      classificationsPerSecond: 0,
+      averageConfidence: 0,
+      modelAccuracy: 96.4,
+      anomaliesDetected: 0,
+      threatDistribution: { FRIENDLY: 0, NEUTRAL: 0, SUSPECT: 0, HOSTILE: 0 },
+    },
+    engagementQueue: [],
 
     startSimulation: () => {
       const state = get();
@@ -75,20 +108,23 @@ export const useSimulation = create<SimulationState>()(
       if (missileInterval) { clearInterval(missileInterval); missileInterval = null; }
       if (missileLaunchInterval) { clearInterval(missileLaunchInterval); missileLaunchInterval = null; }
 
+      // Clear AI tracking maps
+      previousHeadings.clear();
+      previousPredictions.clear();
+
       set({ isRunning: true });
 
       // Generate initial aircraft — start with a packed airspace
       const initialAircraft = Array(15).fill(0).map(() => generateRandomAircraft());
       set({ aircraft: initialAircraft });
 
-      // Update aircraft positions every 2 seconds
+      // Update aircraft positions every 2 seconds + AI reclassification
       simulationInterval = setInterval(() => {
         const currentState = get();
         const playbackState = usePlayback.getState();
-        
+
         // Skip updates if paused or rewinding
         if (playbackState.isPaused || playbackState.isRewinding) {
-          // If rewinding, use historical snapshot
           if (playbackState.isRewinding) {
             const snapshot = playbackState.getCurrentSnapshot();
             if (snapshot) {
@@ -102,19 +138,17 @@ export const useSimulation = create<SimulationState>()(
           }
           return;
         }
-        
+
         const updatedAircraft = currentState.aircraft.map(aircraft => {
-          // Update position based on speed and direction
-          const speed = aircraft.speed / 3600; // Convert km/h to km/s
-          const deltaTime = 2; // 2 seconds
-          
+          const speed = aircraft.speed / 3600;
+          const deltaTime = 2;
+
           const newLat = aircraft.position.lat + (speed * deltaTime * Math.cos(aircraft.heading * Math.PI / 180)) / 111;
           const newLng = aircraft.position.lng + (speed * deltaTime * Math.sin(aircraft.heading * Math.PI / 180)) / (111 * Math.cos(aircraft.position.lat * Math.PI / 180));
-          
-          // Keep aircraft in bounds (roughly Europe area)
+
           const boundedLat = Math.max(35, Math.min(70, newLat));
           const boundedLng = Math.max(-10, Math.min(40, newLng));
-          
+
           return {
             ...aircraft,
             position: { lat: boundedLat, lng: boundedLng, altitude: aircraft.position.altitude },
@@ -122,21 +156,77 @@ export const useSimulation = create<SimulationState>()(
           };
         });
 
+        // ─── AI Classification Pass ───────────────────────────────────
+        let anomalyCount = 0;
+        const reclassifiedAircraft = updatedAircraft.map(aircraft => {
+          // Calculate heading delta for flight pattern stability
+          const prevHeading = previousHeadings.get(aircraft.id) ?? aircraft.heading;
+          let headingDelta = Math.abs(aircraft.heading - prevHeading) % 360;
+          if (headingDelta > 180) headingDelta = 360 - headingDelta;
+          previousHeadings.set(aircraft.id, aircraft.heading);
+
+          // Detect anomaly from previous predictions
+          const anomalyScore = detectAnomaly(aircraft, previousPredictions);
+          if (anomalyScore > 40) anomalyCount++;
+
+          // Classify threat
+          const assessment = classifyAircraftThreat(aircraft, headingDelta, anomalyScore);
+
+          // Store current predictions for next tick's anomaly detection
+          previousPredictions.set(aircraft.id, assessment.predictedPath);
+
+          return {
+            ...aircraft,
+            threatLevel: assessment.threatLevel,
+            aiClassification: assessment,
+          };
+        });
+
+        // Clean up tracking maps for removed aircraft
+        const activeIds = new Set(reclassifiedAircraft.map(ac => ac.id));
+        Array.from(previousHeadings.keys()).forEach(id => {
+          if (!activeIds.has(id)) previousHeadings.delete(id);
+        });
+        Array.from(previousPredictions.keys()).forEach(id => {
+          if (!activeIds.has(id)) previousPredictions.delete(id);
+        });
+
+        // Build engagement priority queue
+        const queue = buildPriorityQueue(reclassifiedAircraft);
+
         // Aggressively spawn new aircraft to keep things busy
-        let finalAircraft = updatedAircraft;
+        let finalAircraft: Aircraft[] = reclassifiedAircraft;
         if (Math.random() < 0.35 && finalAircraft.length < 20) {
-          finalAircraft.push(generateRandomAircraft());
+          finalAircraft = [...finalAircraft, generateRandomAircraft()];
         }
         if (Math.random() < 0.15 && finalAircraft.length < 20) {
-          finalAircraft.push(generateRandomAircraft()); // double-spawn chance
+          finalAircraft = [...finalAircraft, generateRandomAircraft()];
         }
         if (Math.random() < 0.08 && finalAircraft.length > 6) {
           finalAircraft = finalAircraft.slice(1);
         }
 
-        set({ aircraft: finalAircraft });
+        // Update AI metrics
+        const totalAircraft = finalAircraft.length;
+        const avgConf = totalAircraft > 0
+          ? finalAircraft.reduce((s, ac) => s + (ac.aiClassification?.confidenceScore ?? 50), 0) / totalAircraft
+          : 0;
+        const distribution: Record<Aircraft["threatLevel"], number> = { FRIENDLY: 0, NEUTRAL: 0, SUSPECT: 0, HOSTILE: 0 };
+        finalAircraft.forEach(ac => { distribution[ac.threatLevel]++; });
+
+        set({
+          aircraft: finalAircraft,
+          engagementQueue: queue,
+          aiMetrics: {
+            classificationsPerSecond: totalAircraft * 7, // 7 factors per aircraft
+            averageConfidence: Math.round(avgConf * 10) / 10,
+            modelAccuracy: Math.max(93, Math.min(99, 96.4 + (Math.random() - 0.5) * 2)),
+            anomaliesDetected: anomalyCount,
+            threatDistribution: distribution,
+          },
+        });
         get().updateSystemStatus();
-        
+
         // Save snapshot to history
         const newState = get();
         playbackState.addSnapshot({
@@ -148,10 +238,11 @@ export const useSimulation = create<SimulationState>()(
         });
       }, 2000);
 
-      // Generate alerts every 3-8 seconds
+      // Generate smart alerts every 3-8 seconds
       alertInterval = setInterval(() => {
         if (Math.random() < 0.85) {
-          const alert = generateRandomAlert();
+          const currentState = get();
+          const alert = generateSmartAlert(currentState.aircraft);
           get().addAlert(alert);
         }
       }, Math.random() * 5000 + 3000);
@@ -166,59 +257,59 @@ export const useSimulation = create<SimulationState>()(
         get().updateMissiles();
       }, 100);
 
-      // Auto-launch missiles at hostile/suspect targets every 3-6 seconds
+      // AI-optimized auto-launch missiles every 3-6 seconds
       missileLaunchInterval = setInterval(() => {
         const currentState = get();
         if (currentState.systemStatus.missileReady <= 0) return;
 
-        const threats = currentState.aircraft.filter(
-          ac => (ac.threatLevel === 'HOSTILE' || ac.threatLevel === 'SUSPECT') &&
-          !currentState.missiles.some(m => m.targetId === ac.id && m.active)
-        );
+        const queue = currentState.engagementQueue
+          .filter(pt => !currentState.missiles.some(m => m.targetId === pt.aircraft.id && m.active));
 
-        if (threats.length > 0 && Math.random() < 0.8) {
-          const target = threats[Math.floor(Math.random() * threats.length)];
-          get().launchMissile(target.id);
+        if (queue.length > 0 && Math.random() < 0.8) {
+          const topTarget = queue[0];
+          get().launchMissile(topTarget.aircraft.id);
+
+          // AI-contextual launch alert
+          get().addAlert({
+            id: `ALT${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
+            timestamp: Date.now(),
+            type: 'SYSTEM',
+            priority: 'HIGH',
+            message: `AI targeting: engaged ${topTarget.aircraft.callsign} (priority: ${topTarget.engagementScore.toFixed(0)}, ETA: ${topTarget.estimatedTimeToImpact < 99999 ? topTarget.estimatedTimeToImpact + 's' : 'N/A'})`,
+            position: { lat: topTarget.aircraft.position.lat, lng: topTarget.aircraft.position.lng },
+          });
         }
       }, Math.random() * 3000 + 3000);
     },
 
     stopSimulation: () => {
       set({ isRunning: false });
-      
-      if (simulationInterval) {
-        clearInterval(simulationInterval);
-        simulationInterval = null;
-      }
-      if (alertInterval) {
-        clearInterval(alertInterval);
-        alertInterval = null;
-      }
-      if (analyticsInterval) {
-        clearInterval(analyticsInterval);
-        analyticsInterval = null;
-      }
-      if (missileInterval) {
-        clearInterval(missileInterval);
-        missileInterval = null;
-      }
-      if (missileLaunchInterval) {
-        clearInterval(missileLaunchInterval);
-        missileLaunchInterval = null;
-      }
+
+      if (simulationInterval) { clearInterval(simulationInterval); simulationInterval = null; }
+      if (alertInterval) { clearInterval(alertInterval); alertInterval = null; }
+      if (analyticsInterval) { clearInterval(analyticsInterval); analyticsInterval = null; }
+      if (missileInterval) { clearInterval(missileInterval); missileInterval = null; }
+      if (missileLaunchInterval) { clearInterval(missileLaunchInterval); missileLaunchInterval = null; }
+
+      // Clear AI tracking maps
+      previousHeadings.clear();
+      previousPredictions.clear();
     },
 
     updateAircraft: (aircraft) => set({ aircraft }),
 
     addAlert: (alert) => set((state) => ({
-      alerts: [alert, ...state.alerts.slice(0, 99)] // Keep last 100 alerts
+      alerts: [alert, ...state.alerts.slice(0, 99)]
     })),
 
     updateSystemStatus: () => {
       const state = get();
       const aircraftCount = state.aircraft.length;
-      const threatLevel = aircraftCount > 10 ? 'HIGH' : aircraftCount > 6 ? 'MEDIUM' : 'LOW';
-      
+      const hostileCount = state.aircraft.filter(ac => ac.threatLevel === 'HOSTILE').length;
+      const suspectCount = state.aircraft.filter(ac => ac.threatLevel === 'SUSPECT').length;
+      const threatLevel = hostileCount > 2 || suspectCount > 4 ? 'HIGH' :
+                          hostileCount > 0 || suspectCount > 2 ? 'MEDIUM' : 'LOW';
+
       set((currentState) => ({
         systemStatus: {
           ...currentState.systemStatus,
@@ -234,7 +325,7 @@ export const useSimulation = create<SimulationState>()(
       set((state) => {
         const newDetection = Math.floor(Math.random() * 15) + 5;
         const newSystemLoad = Math.floor(Math.random() * 40) + 30;
-        
+
         return {
           analytics: {
             ...state.analytics,
@@ -255,12 +346,7 @@ export const useSimulation = create<SimulationState>()(
       if (!target) return;
       if (state.systemStatus.missileReady <= 0) return;
 
-      // Radar center position
-      const radarPosition = {
-        lat: 50.0,
-        lng: 10.0,
-        altitude: 0
-      };
+      const radarPosition = { lat: 50.0, lng: 10.0, altitude: 0 };
 
       const missile: Missile = {
         id: `MSL${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
@@ -269,7 +355,7 @@ export const useSimulation = create<SimulationState>()(
         currentPosition: { ...radarPosition },
         targetId,
         launchTime: Date.now(),
-        speed: 3000, // 3000 km/h (very fast)
+        speed: 3000,
         active: true
       };
 
@@ -281,17 +367,13 @@ export const useSimulation = create<SimulationState>()(
         }
       }));
 
-      // Add alert for missile launch
       const alert: Alert = {
         id: `ALT${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
         timestamp: Date.now(),
         type: 'SYSTEM',
-        message: `Interceptor missile launched at ${target.callsign}`,
+        message: `AI interceptor launched at ${target.callsign} — confidence: ${target.aiClassification?.confidenceScore?.toFixed(1) ?? '?'}%`,
         priority: 'HIGH',
-        position: {
-          lat: radarPosition.lat,
-          lng: radarPosition.lng
-        }
+        position: { lat: radarPosition.lat, lng: radarPosition.lng }
       };
       get().addAlert(alert);
     },
@@ -307,40 +389,33 @@ export const useSimulation = create<SimulationState>()(
             return { ...missile, active: false };
           }
 
-          // Update target position
           missile.targetPosition = { ...target.position };
 
-          // Calculate direction vector
           const dx = missile.targetPosition.lat - missile.currentPosition.lat;
           const dy = missile.targetPosition.lng - missile.currentPosition.lng;
           const dz = missile.targetPosition.altitude - missile.currentPosition.altitude;
           const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-          // Check if missile reached target — destroy aircraft on impact
           if (distance < 0.1) {
-            // Remove the targeted aircraft
             const currentAircraft = get().aircraft;
             set({
               aircraft: currentAircraft.filter(ac => ac.id !== missile.targetId),
             });
-            // Generate destruction alert
             get().addAlert({
               id: `ALT${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
               timestamp: Date.now(),
               type: 'THREAT',
               priority: 'HIGH',
-              message: `Target ${target.callsign} neutralized by interceptor`,
+              message: `AI confirmed: ${target.callsign} neutralized — threat eliminated`,
               position: { lat: target.position.lat, lng: target.position.lng },
             });
-            // Restock 1 missile after successful intercept
             set((s) => ({
               systemStatus: { ...s.systemStatus, missileReady: Math.min(30, s.systemStatus.missileReady + 1) },
             }));
             return { ...missile, active: false };
           }
 
-          // Move missile towards target
-          const speed = missile.speed / 3600; // Convert km/h to km/s for 2-second intervals
+          const speed = missile.speed / 3600;
           const step = speed / distance;
 
           return {
@@ -352,7 +427,7 @@ export const useSimulation = create<SimulationState>()(
             }
           };
         })
-        .filter(missile => missile.active || Date.now() - missile.launchTime < 10000); // Keep for 10 seconds
+        .filter(missile => missile.active || Date.now() - missile.launchTime < 10000);
 
       set({ missiles: updatedMissiles });
     },

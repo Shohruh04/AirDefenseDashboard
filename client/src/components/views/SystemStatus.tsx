@@ -11,11 +11,12 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
+  Brain,
 } from "lucide-react";
 import { useSimulation } from "../../lib/stores/useSimulation";
 
 const SystemStatus: React.FC = () => {
-  const { systemStatus, aircraft, alerts, isRunning } = useSimulation();
+  const { systemStatus, aircraft, alerts, isRunning, aiMetrics } = useSimulation();
 
   const recentAlerts = alerts.slice(0, 5);
   const criticalAlerts = alerts.filter(
@@ -27,10 +28,10 @@ const SystemStatus: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-foreground mb-2">
-            System Status
+            AI System Status
           </h2>
           <p className="text-muted-foreground">
-            Real-time monitoring of air defense system components
+            Real-time monitoring of AI-powered air defense system components
           </p>
         </div>
 
@@ -160,12 +161,12 @@ const SystemStatus: React.FC = () => {
                   </Badge>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm">Data Processing Unit</span>
+                  <span className="text-sm">AI Classification Engine</span>
                   <Badge
                     variant="secondary"
-                    className="bg-yellow-100 text-yellow-700"
+                    className="bg-green-100 text-green-700"
                   >
-                    Degraded
+                    Online
                   </Badge>
                 </div>
                 <div className="flex justify-between items-center">
@@ -234,10 +235,48 @@ const SystemStatus: React.FC = () => {
           </Card>
         </div>
 
+        {/* AI Processing Status */}
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-purple-500" />
+              AI Processing Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Classification Engine</p>
+                <p className="text-sm font-semibold text-green-600">Active</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Model Accuracy</p>
+                <p className="text-sm font-semibold">{aiMetrics?.modelAccuracy?.toFixed(1) ?? '—'}%</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Classifications/sec</p>
+                <p className="text-sm font-semibold">{aiMetrics?.classificationsPerSecond ?? '—'}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Avg Confidence</p>
+                <p className="text-sm font-semibold">{aiMetrics?.averageConfidence?.toFixed(1) ?? '—'}%</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Anomalies Detected</p>
+                <p className="text-sm font-semibold text-orange-600">{aiMetrics?.anomaliesDetected ?? 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Predictive Model</p>
+                <p className="text-sm font-semibold text-green-600">Online</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Simulation Status */}
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle>Simulation Status</CardTitle>
+            <CardTitle>AI Simulation Status</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4">
@@ -248,18 +287,19 @@ const SystemStatus: React.FC = () => {
                   }`}
                 />
                 <span className="text-sm">
-                  Simulation {isRunning ? "Running" : "Stopped"}
+                  AI Simulation {isRunning ? "Running" : "Stopped"}
                 </span>
               </div>
+              <Badge variant="outline">AI-Powered</Badge>
               <Badge variant="outline">Educational Mode</Badge>
-              <Badge variant="outline">Generated Data Only</Badge>
             </div>
             <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-md">
               <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Disclaimer:</strong> This is a simulated educational
-                dashboard. All data displayed is artificially generated and does
-                not represent real air defense systems or actual aircraft
-                movements.
+                <strong>Disclaimer:</strong> This is an AI-powered simulated
+                educational dashboard. The AI classification system uses
+                weighted algorithms to simulate intelligent threat assessment.
+                All data is artificially generated and does not represent real
+                air defense systems.
               </p>
             </div>
           </CardContent>

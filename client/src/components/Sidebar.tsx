@@ -11,7 +11,7 @@ import {
   Info,
   ChevronLeft,
   ChevronRight,
-  Radar,
+  Brain,
 } from "lucide-react";
 import type { TabType } from "./Layout";
 
@@ -50,9 +50,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex items-center justify-between">
           {!collapsed && (
             <div className="flex items-center gap-2">
-              <Radar className="h-6 w-6 text-primary" />
+              <Brain className="h-6 w-6 text-purple-500" />
               <span className="font-semibold text-sidebar-foreground">
-                Air Defense
+                AI Defense
               </span>
             </div>
           )}
@@ -101,7 +101,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-4 border-t border-sidebar-border">
         {!collapsed && (
           <div className="text-xs text-sidebar-foreground/60">
-            Educational Simulation
+            AI-Powered Simulation
           </div>
         )}
       </div>

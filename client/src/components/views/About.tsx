@@ -12,6 +12,7 @@ import {
   BookOpen,
   ExternalLink,
   AlertTriangle,
+  Brain,
 } from "lucide-react";
 
 const About: React.FC = () => {
@@ -20,13 +21,13 @@ const About: React.FC = () => {
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
-            <Shield className="h-8 w-8 text-primary" />
+            <Brain className="h-8 w-8 text-purple-500" />
             <h1 className="text-3xl font-bold text-foreground">
-              3D Air Defense Simulation Dashboard
+              AI-Powered Air Defense Simulation
             </h1>
           </div>
           <p className="text-lg text-muted-foreground">
-            Educational Computer Science Diploma Project
+            AI-Driven Educational Computer Science Diploma Project
           </p>
         </div>
 
@@ -41,11 +42,13 @@ const About: React.FC = () => {
                 </h3>
                 <p className="text-orange-700 dark:text-orange-300 mb-3">
                   <strong>
-                    This project is a simulated educational dashboard.
+                    This project is an AI-powered simulated educational dashboard.
                   </strong>{" "}
-                  All visuals, data, and functionality are artificially
-                  generated and do not represent real air defense systems,
-                  actual aircraft movements, or government sources.
+                  The AI classification system uses deterministic weighted
+                  algorithms to simulate intelligent threat assessment. All
+                  visuals, data, and functionality are artificially generated
+                  and do not represent real air defense systems, actual aircraft
+                  movements, or government sources.
                 </p>
                 <p className="text-orange-700 dark:text-orange-300">
                   This simulation is designed purely for educational purposes as
@@ -67,34 +70,37 @@ const About: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground">
-              This educational air defense simulation dashboard was developed as
+              This AI-powered air defense simulation dashboard was developed as
               a Computer Science diploma project to demonstrate advanced web
-              development skills, 3D visualization techniques, and real-time
-              data management concepts.
+              development, AI-driven threat classification, 3D visualization,
+              and real-time intelligent data processing concepts.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-3">
                 <h4 className="font-semibold">Key Features</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Interactive 2D map with Leaflet.js</li>
+                  <li>• AI-powered multi-factor threat classification</li>
+                  <li>• Predictive flight path analysis with anomaly detection</li>
+                  <li>• AI engagement priority queue for missile targeting</li>
                   <li>• Immersive 3D simulation with Three.js</li>
-                  <li>• Real-time analytics and charting</li>
-                  <li>• Responsive dashboard interface</li>
-                  <li>• Simulated radar and aircraft tracking</li>
-                  <li>• Alert system with event logging</li>
+                  <li>• Interactive 2D map with Leaflet.js</li>
+                  <li>• Real-time AI analytics and confidence metrics</li>
+                  <li>• IFF (Identify Friend or Foe) transponder simulation</li>
+                  <li>• Smart contextual alert system</li>
                 </ul>
               </div>
 
               <div className="space-y-3">
                 <h4 className="font-semibold">Learning Objectives</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• AI classification and decision-making algorithms</li>
+                  <li>• Predictive modeling and anomaly detection</li>
                   <li>• Advanced React.js development</li>
                   <li>• 3D graphics and WebGL concepts</li>
                   <li>• Real-time data visualization</li>
                   <li>• State management patterns</li>
-                  <li>• User interface design principles</li>
-                  <li>• Performance optimization techniques</li>
+                  <li>• Weighted scoring and priority systems</li>
                 </ul>
               </div>
             </div>
@@ -110,7 +116,7 @@ const About: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="space-y-3">
                 <h4 className="font-semibold flex items-center gap-2">
                   <Globe className="h-4 w-4" />
@@ -132,8 +138,21 @@ const About: React.FC = () => {
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="secondary">Three.js</Badge>
                   <Badge variant="secondary">Leaflet.js</Badge>
-                  <Badge variant="secondary">Chart.js</Badge>
+                  <Badge variant="secondary">Recharts</Badge>
                   <Badge variant="secondary">React Three Fiber</Badge>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <Brain className="h-4 w-4" />
+                  AI & Analysis
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="secondary">Weighted Classification</Badge>
+                  <Badge variant="secondary">Anomaly Detection</Badge>
+                  <Badge variant="secondary">Predictive Modeling</Badge>
+                  <Badge variant="secondary">Priority Scoring</Badge>
                 </div>
               </div>
 
@@ -144,7 +163,6 @@ const About: React.FC = () => {
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="secondary">Zustand</Badge>
-                  <Badge variant="secondary">React Router</Badge>
                   <Badge variant="secondary">Lucide Icons</Badge>
                   <Badge variant="secondary">Radix UI</Badge>
                 </div>
@@ -162,37 +180,40 @@ const About: React.FC = () => {
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
-                  <h4 className="font-semibold">2D Map View</h4>
+                  <h4 className="font-semibold">AI Threat Classification</h4>
                   <p className="text-sm text-muted-foreground">
-                    Interactive map showing radar coverage zones and simulated
-                    aircraft positions with real-time updates and detailed
-                    tooltips.
+                    Multi-factor weighted scoring engine analyzes 7 risk
+                    factors per aircraft — type, IFF response, proximity,
+                    heading, speed anomaly, altitude anomaly, and flight
+                    pattern stability — to produce real-time threat assessments.
                   </p>
                 </div>
 
                 <div className="space-y-3">
-                  <h4 className="font-semibold">3D Simulation</h4>
+                  <h4 className="font-semibold">Predictive Analysis</h4>
                   <p className="text-sm text-muted-foreground">
-                    Immersive 3D environment with moving aircraft models,
-                    animated radar sweep, and day/night lighting modes with
-                    orbital camera controls.
+                    AI predicts future flight paths with growing uncertainty
+                    cones and detects anomalies when aircraft deviate from
+                    predicted trajectories, triggering automatic threat
+                    escalation.
                   </p>
                 </div>
 
                 <div className="space-y-3">
-                  <h4 className="font-semibold">Analytics Dashboard</h4>
+                  <h4 className="font-semibold">3D & 2D Visualization</h4>
                   <p className="text-sm text-muted-foreground">
-                    Interactive charts displaying aircraft detection rates,
-                    altitude distribution, and system performance metrics over
-                    time.
+                    Immersive 3D environment and interactive 2D map with AI
+                    reasoning panels, prediction lines, confidence indicators,
+                    and engagement priority queue overlays.
                   </p>
                 </div>
 
                 <div className="space-y-3">
-                  <h4 className="font-semibold">Alert System</h4>
+                  <h4 className="font-semibold">Smart Alert System</h4>
                   <p className="text-sm text-muted-foreground">
-                    Real-time alert logging with filtering and search
-                    capabilities, categorized by type and priority levels.
+                    AI-generated contextual alerts referencing actual aircraft
+                    states — threat reclassifications, anomaly detections,
+                    proximity warnings, and IFF failures.
                   </p>
                 </div>
               </div>
@@ -211,30 +232,30 @@ const About: React.FC = () => {
           <CardContent>
             <div className="space-y-4">
               <p className="text-muted-foreground">
-                All data displayed in this simulation is completely artificial
-                and generated using algorithmic methods. No real aircraft data,
-                government sources, or actual air defense information is used in
-                any form.
+                All data displayed in this simulation is generated using AI
+                classification algorithms and simulated sensor inputs. No real
+                aircraft data, government sources, or actual air defense
+                information is used in any form.
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <h4 className="font-semibold">Simulated Data Types</h4>
+                  <h4 className="font-semibold">AI-Processed Data Types</h4>
                   <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Random aircraft positions and trajectories</li>
-                    <li>• Generated speed and altitude values</li>
-                    <li>• Artificial alert events and notifications</li>
-                    <li>• Synthetic system performance metrics</li>
+                    <li>• AI-classified aircraft threat assessments</li>
+                    <li>• Predicted flight trajectories with uncertainty</li>
+                    <li>• Anomaly detection scores and alerts</li>
+                    <li>• AI confidence metrics and risk factors</li>
                   </ul>
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="font-semibold">Generation Methods</h4>
+                  <h4 className="font-semibold">AI Algorithms</h4>
                   <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Mathematical random number generation</li>
-                    <li>• Predefined parameter ranges</li>
-                    <li>• Time-based simulation updates</li>
-                    <li>• Realistic movement interpolation</li>
+                    <li>• Multi-factor weighted threat scoring</li>
+                    <li>• Linear predictive path modeling</li>
+                    <li>• Deviation-based anomaly detection</li>
+                    <li>• Priority-ranked engagement queuing</li>
                   </ul>
                 </div>
               </div>
@@ -249,24 +270,25 @@ const About: React.FC = () => {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground mb-4">
-              This project serves as a comprehensive demonstration of modern web
-              development techniques and is intended for educational evaluation
-              and learning purposes only. It showcases:
+              This project serves as a comprehensive demonstration of AI-driven
+              simulation, modern web development, and intelligent decision-making
+              systems. It is intended for educational evaluation and learning
+              purposes only. It showcases:
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ul className="text-sm text-muted-foreground space-y-2">
-                <li>• Complex React.js application architecture</li>
+                <li>• AI classification and threat assessment algorithms</li>
+                <li>• Predictive modeling with anomaly detection</li>
                 <li>• Advanced 3D graphics programming with WebGL</li>
-                <li>• Real-time data visualization techniques</li>
-                <li>• Responsive user interface design</li>
+                <li>• Real-time AI-driven data visualization</li>
               </ul>
 
               <ul className="text-sm text-muted-foreground space-y-2">
-                <li>• State management best practices</li>
-                <li>• Performance optimization strategies</li>
+                <li>• Weighted scoring and decision systems</li>
+                <li>• Intelligent engagement prioritization</li>
                 <li>• Modern TypeScript development</li>
-                <li>• Component-based architecture</li>
+                <li>• Complex React.js application architecture</li>
               </ul>
             </div>
           </CardContent>
@@ -276,11 +298,12 @@ const About: React.FC = () => {
         <Card>
           <CardContent className="p-4 text-center">
             <p className="text-sm text-muted-foreground">
-              Developed as a Computer Science Diploma Project • Educational Use
-              Only
+              AI-Powered Air Defense Simulation • Computer Science Diploma
+              Project • Educational Use Only
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              All data is simulated • No real defense systems represented
+              AI classification uses weighted algorithms • All data is simulated
+              • No real defense systems represented
             </p>
           </CardContent>
         </Card>

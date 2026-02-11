@@ -8,7 +8,7 @@ import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { getThreatLevelColor, getThreatLevelLabel } from "../../lib/simulation";
 import type { Aircraft, Missile } from "../../lib/simulation";
-import { Play, Square, Radar, Plane, Zap } from "lucide-react";
+import { Play, Square, Radar, Plane, Zap, Brain } from "lucide-react";
 
 // Radar center coordinates
 const RADAR_CENTER: [number, number] = [50.0, 10.0];
@@ -130,7 +130,7 @@ const AircraftMarker: React.FC<{
     <>
       <Marker position={position} icon={icon} eventHandlers={{ click: () => onSelect(ac.id) }}>
         <Popup>
-          <div style={{ minWidth: 180 }}>
+          <div style={{ minWidth: 200 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,.2)" }}>
               <div style={{ width: 12, height: 12, background: color, borderRadius: "50%" }} />
               <span style={{ fontSize: 16, fontWeight: "bold", color }}>{ac.callsign}</span>
@@ -145,6 +145,22 @@ const AircraftMarker: React.FC<{
                 <span style={{ color, fontWeight: "bold" }}>{getThreatLevelLabel(ac.threatLevel)}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "#888" }}>AI Confidence:</span>
+                <span style={{ color: "#c084fc", fontWeight: "bold" }}>{ac.aiClassification?.confidenceScore?.toFixed(0) ?? '—'}%</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "#888" }}>IFF Status:</span>
+                <span style={{ color: ac.aiClassification?.iffResponding ? "#00ff88" : "#ff4444" }}>
+                  {ac.aiClassification?.iffResponding ? "Responding" : "No Response"}
+                </span>
+              </div>
+              {ac.aiClassification?.riskFactors && ac.aiClassification.riskFactors.length > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "#888" }}>Top Risk:</span>
+                  <span style={{ color: "#ffaa00" }}>{ac.aiClassification.riskFactors[0].name}</span>
+                </div>
+              )}
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "#888" }}>Altitude:</span>
                 <span style={{ color: "#00ff88" }}>{ac.position.altitude.toLocaleString()}m</span>
               </div>
@@ -157,11 +173,48 @@ const AircraftMarker: React.FC<{
                 <span style={{ color: "#fff" }}>{ac.heading}°</span>
               </div>
             </div>
+            {ac.aiClassification && (
+              <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,.2)", fontSize: 11 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, color: "#c084fc" }}>
+                  <span style={{ fontWeight: "bold" }}>AI:</span>
+                  <span>{
+                    (ac.aiClassification.totalScore ?? 0) >= 66 ? "ENGAGE" :
+                    (ac.aiClassification.totalScore ?? 0) >= 46 ? "TRACK" :
+                    (ac.aiClassification.totalScore ?? 0) >= 26 ? "MONITOR" : "CLEAR"
+                  }</span>
+                </div>
+              </div>
+            )}
           </div>
         </Popup>
       </Marker>
-      {/* Prediction path */}
-      <Polyline positions={[position, predEnd]} pathOptions={{ color, weight: 1, opacity: 0.4, dashArray: "4 8" }} />
+      {/* AI Predicted path */}
+      {ac.aiClassification?.predictedPath && ac.aiClassification.predictedPath.length > 0 ? (
+        <>
+          <Polyline
+            positions={[position, ...ac.aiClassification.predictedPath.map(p => [p.lat, p.lng] as [number, number])]}
+            pathOptions={{ color, weight: 1.5, opacity: 0.5, dashArray: "6 6" }}
+          />
+          {ac.aiClassification.predictedPath.map((p, i) => (
+            <Circle
+              key={i}
+              center={[p.lat, p.lng]}
+              radius={p.uncertainty * 500}
+              pathOptions={{ color, weight: 0.5, opacity: 0.2, fillColor: color, fillOpacity: 0.08 }}
+            />
+          ))}
+        </>
+      ) : (
+        <Polyline positions={[position, predEnd]} pathOptions={{ color, weight: 1, opacity: 0.4, dashArray: "4 8" }} />
+      )}
+      {/* Anomaly pulse indicator */}
+      {(ac.aiClassification?.anomalyScore ?? 0) > 50 && (
+        <Circle
+          center={position}
+          radius={3000}
+          pathOptions={{ color: "#ff6600", weight: 2, opacity: 0.7, fillColor: "#ff6600", fillOpacity: 0.15, dashArray: "4 4" }}
+        />
+      )}
     </>
   );
 });
@@ -208,7 +261,7 @@ function MapResizeHandler() {
 }
 
 const Map2D: React.FC = () => {
-  const { aircraft, missiles, isRunning, startSimulation, stopSimulation, systemStatus } = useSimulation();
+  const { aircraft, missiles, isRunning, startSimulation, stopSimulation, systemStatus, engagementQueue } = useSimulation();
   const [selectedAircraft, setSelectedAircraft] = React.useState<string | null>(null);
 
   const handleSelect = useCallback((id: string) => setSelectedAircraft(id), []);
@@ -223,8 +276,12 @@ const Map2D: React.FC = () => {
           <div className="flex items-center gap-3">
             <Radar className="h-5 w-5 text-green-400" />
             <div>
-              <h2 className="text-lg font-semibold text-white">Tactical Radar Display</h2>
-              <p className="text-xs text-gray-400">Real-time air defense monitoring</p>
+              <h2 className="text-lg font-semibold text-white">AI Tactical Radar Display</h2>
+              <p className="text-xs text-gray-400">AI-powered real-time air defense monitoring</p>
+            </div>
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-purple-900/50 border border-purple-700">
+              <Brain className="h-3 w-3 text-purple-400" />
+              <span className="text-xs text-purple-300">AI Active</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -340,10 +397,39 @@ const Map2D: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* AI Priority Queue */}
+        {engagementQueue && engagementQueue.length > 0 && (
+          <Card className="absolute bottom-4 right-4 z-[1000] bg-gray-900/90 border-purple-700 w-56">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Brain className="h-3.5 w-3.5 text-purple-400" />
+                <span className="text-xs text-purple-300 font-medium">AI PRIORITY QUEUE</span>
+              </div>
+              <div className="space-y-1.5">
+                {engagementQueue.slice(0, 4).map((target, i) => {
+                  const tl = target.aircraft.threatLevel;
+                  const threatColor =
+                    tl === "HOSTILE" ? "#ef4444" :
+                    tl === "SUSPECT" ? "#f59e0b" :
+                    tl === "NEUTRAL" ? "#3b82f6" : "#10b981";
+                  return (
+                    <div key={target.aircraft.id} className="flex items-center gap-2 text-xs">
+                      <span className="text-gray-500 font-mono w-4">#{i + 1}</span>
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: threatColor }} />
+                      <span className="text-gray-200 flex-1 truncate">{target.aircraft.callsign}</span>
+                      <span className="text-purple-400 font-mono">{target.engagementScore.toFixed(0)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Legend */}
         <Card className="absolute top-4 left-4 z-[1000] bg-gray-900/90 border-gray-700">
           <CardContent className="p-3">
-            <div className="text-xs text-gray-400 mb-2 font-medium">THREAT CLASSIFICATION</div>
+            <div className="text-xs text-gray-400 mb-2 font-medium">AI THREAT CLASSIFICATION</div>
             <div className="space-y-1 text-xs">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-green-500" />

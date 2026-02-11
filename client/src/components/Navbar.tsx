@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Menu, Shield, WifiOff, Wifi } from "lucide-react";
+import { Menu, Shield, WifiOff, Wifi, Brain } from "lucide-react";
 import { useSimulation } from "../lib/stores/useSimulation";
 import { useSettings } from "../lib/stores/useSettings";
 import ThemeToggle from "./ThemeToggle";
@@ -13,13 +13,13 @@ interface NavbarProps {
 }
 
 const tabTitles: Record<TabType, string> = {
-  "2D_MAP": "2D Map View",
-  "3D_SIMULATION": "3D Air Defense Simulation",
-  SYSTEM_STATUS: "System Status",
-  ANALYTICS: "Analytics Dashboard",
-  ALERTS: "Alerts & Events Log",
-  SETTINGS: "System Settings",
-  ABOUT: "About This Project",
+  "2D_MAP": "AI Tactical Map",
+  "3D_SIMULATION": "AI-Powered 3D Simulation",
+  SYSTEM_STATUS: "AI System Status",
+  ANALYTICS: "AI Analytics Dashboard",
+  ALERTS: "AI Alerts & Events",
+  SETTINGS: "AI System Settings",
+  ABOUT: "About AI Defense",
 };
 
 const Navbar: React.FC<NavbarProps> = ({ activeTab, onToggleSidebar }) => {
@@ -43,10 +43,10 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onToggleSidebar }) => {
             <Shield className="h-6 w-6 text-primary" />
             <div>
               <h1 className="text-lg font-semibold text-foreground">
-                3D Air Defense Simulation Dashboard
+                AI-Powered Air Defense System
               </h1>
               <p className="text-sm text-muted-foreground">
-                {tabTitles[activeTab]} • Educational Project
+                {tabTitles[activeTab]} • AI Simulation
               </p>
             </div>
           </div>
@@ -88,6 +88,12 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onToggleSidebar }) => {
               <span className="font-mono">
                 {systemStatus.radarUptime.toFixed(1)}%
               </span>
+            </Badge>
+
+            <Badge variant="outline" className="gap-1 border-purple-500 text-purple-600 dark:text-purple-400">
+              <Brain className="h-3 w-3" />
+              <span className="text-xs">AI:</span>
+              <span className="font-mono">Active</span>
             </Badge>
           </div>
 

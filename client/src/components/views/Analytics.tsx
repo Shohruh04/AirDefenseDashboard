@@ -5,12 +5,12 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, Brain } from "lucide-react";
 import { useSimulation } from "../../lib/stores/useSimulation";
 import { exportToCSV, exportAnalyticsToPDF } from "../../lib/exportUtils";
 
 const Analytics: React.FC = () => {
-  const { analytics, aircraft } = useSimulation();
+  const { analytics, aircraft, aiMetrics } = useSimulation();
 
   // Transform data for recharts
   const detectionData = useMemo(
@@ -85,8 +85,8 @@ const Analytics: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 flex justify-between items-start">
           <div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">Analytics Dashboard</h2>
-            <p className="text-muted-foreground">Performance metrics and tracking statistics</p>
+            <h2 className="text-2xl font-bold text-foreground mb-2">AI Analytics Dashboard</h2>
+            <p className="text-muted-foreground">AI performance metrics and intelligent tracking statistics</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleExportCSV} className="flex items-center gap-2">
@@ -206,54 +206,89 @@ const Analytics: React.FC = () => {
           </Card>
         </div>
 
-        {/* Additional Analytics */}
+        {/* AI Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Aircraft Type Distribution</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="h-5 w-5 text-purple-500" />
+                AI Threat Distribution
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {typeDistribution.map(({ type, count, percentage }) => (
-                  <div key={type} className="flex justify-between items-center">
-                    <span className="text-sm">{type}</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-20 h-2 bg-muted rounded-full">
-                        <div className="h-full bg-primary rounded-full" style={{ width: `${percentage}%` }} />
+                {[
+                  { label: "HOSTILE", count: aiMetrics?.threatDistribution?.HOSTILE ?? 0, color: "bg-red-500" },
+                  { label: "SUSPECT", count: aiMetrics?.threatDistribution?.SUSPECT ?? 0, color: "bg-orange-500" },
+                  { label: "NEUTRAL", count: aiMetrics?.threatDistribution?.NEUTRAL ?? 0, color: "bg-blue-500" },
+                  { label: "FRIENDLY", count: aiMetrics?.threatDistribution?.FRIENDLY ?? 0, color: "bg-green-500" },
+                ].map(({ label, count, color }) => {
+                  const total = aircraft.length || 1;
+                  const pct = (count / total) * 100;
+                  return (
+                    <div key={label} className="flex justify-between items-center">
+                      <span className="text-sm">{label}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-2 bg-muted rounded-full">
+                          <div className={`h-full ${color} rounded-full`} style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-sm font-mono w-8">{count}</span>
                       </div>
-                      <span className="text-sm font-mono w-8">{count}</span>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
+              </div>
+              <div className="mt-4 pt-3 border-t">
+                <h4 className="text-sm font-semibold mb-2">Aircraft Type Distribution</h4>
+                <div className="space-y-2">
+                  {typeDistribution.map(({ type, count, percentage }) => (
+                    <div key={type} className="flex justify-between items-center">
+                      <span className="text-sm">{type}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-2 bg-muted rounded-full">
+                          <div className="h-full bg-primary rounded-full" style={{ width: `${percentage}%` }} />
+                        </div>
+                        <span className="text-sm font-mono w-8">{count}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Performance Metrics</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="h-5 w-5 text-purple-500" />
+                AI Performance Metrics
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div className="flex justify-between">
-                  <span className="text-sm">Processing Rate</span>
-                  <span className="font-mono">2.1 kHz</span>
+                  <span className="text-sm">AI Model Accuracy</span>
+                  <span className="font-mono">{aiMetrics?.modelAccuracy?.toFixed(1) ?? '—'}%</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm">Response Time</span>
-                  <span className="font-mono">12ms</span>
+                  <span className="text-sm">Classifications/sec</span>
+                  <span className="font-mono">{aiMetrics?.classificationsPerSecond ?? '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm">Avg AI Confidence</span>
+                  <span className="font-mono">{aiMetrics?.averageConfidence?.toFixed(1) ?? '—'}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm">Anomalies Detected</span>
+                  <span className="font-mono">{aiMetrics?.anomaliesDetected ?? 0}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm">Detection Range</span>
                   <span className="font-mono">300km</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm">Track Accuracy</span>
-                  <span className="font-mono">98.7%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm">False Alarm Rate</span>
-                  <span className="font-mono">0.03%</span>
+                  <span className="text-sm">AI Response Time</span>
+                  <span className="font-mono">12ms</span>
                 </div>
               </div>
             </CardContent>
