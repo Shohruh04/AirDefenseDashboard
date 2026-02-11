@@ -4,183 +4,129 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an Air Defense Dashboard - a real-time aircraft tracking and threat monitoring simulation built with React, Three.js, and Express. The application provides multiple visualization modes (2D map, 3D simulation) for monitoring aircraft movements, threat levels, and missile defense systems.
+Air Defense Dashboard — a real-time aircraft tracking and threat monitoring simulation with 2D map (Leaflet) and 3D (Three.js/React Three Fiber) visualization modes. Built with React 18, Zustand, Express, and PostgreSQL (Drizzle ORM).
 
 ## Development Commands
 
-### Running the Application
-- `npm run dev` - Start development server with hot reload (runs on port 5000)
-- `npm run build` - Build both client (Vite) and server (esbuild) for production
-- `npm start` - Run production build (Linux/Mac only; on Windows use `set NODE_ENV=production && node dist/index.js`)
-- `npm run check` - Type check TypeScript files without emitting
+```bash
+npm run dev          # Start dev server with Vite HMR (port 5000)
+npm run build        # Build client (Vite → dist/public/) + server (esbuild → dist/index.js)
+npm start            # Run production build (NODE_ENV=production)
+npm run check        # TypeScript type-check (no emit)
+npm run db:push      # Push Drizzle schema to PostgreSQL
+```
 
-### Database Commands
-- `npm run db:push` - Push database schema changes to PostgreSQL using Drizzle
+Requires `DATABASE_URL` env var — see `.env.example`. Docker Compose available via `docker-compose.yml` for local PostgreSQL.
 
 ## Architecture
 
-### Monorepo Structure
-This is a monorepo with three main directories:
-- `client/` - React frontend application
-- `server/` - Express backend API server
-- `shared/` - Shared TypeScript types and database schemas
+### Monorepo Layout
 
-### Frontend Architecture
+- `client/` — React frontend (Vite, entry: `client/src/main.tsx`)
+- `server/` — Express backend (entry: `server/index.ts`, port 5000 hardcoded)
+- `shared/` — Drizzle ORM schemas + Zod validation (`shared/schema.ts`)
 
-**State Management (Zustand)**:
-- `useSimulation` ([client/src/lib/stores/useSimulation.ts](client/src/lib/stores/useSimulation.ts)) - Core simulation state managing aircraft, alerts, missiles, and system status. Runs multiple intervals for updating positions, generating alerts, and tracking missiles.
-- `usePlayback` ([client/src/lib/stores/usePlayback.ts](client/src/lib/stores/usePlayback.ts)) - Time-travel debugging with pause/rewind functionality. Stores snapshots of simulation state.
-- `useSettings` ([client/src/lib/stores/useSettings.ts](client/src/lib/stores/useSettings.ts)) - User preferences including day/night mode and simulation settings.
-- `useAudio` ([client/src/lib/stores/useAudio.tsx](client/src/lib/stores/useAudio.tsx)) - Sound effects management using Howler.js.
-- `useGame` ([client/src/lib/stores/useGame.tsx](client/src/lib/stores/useGame.tsx)) - Game-like interaction state.
+### Path Aliases
 
-**Views System**:
-The app uses a tab-based navigation with views defined in [client/src/components/Layout.tsx](client/src/components/Layout.tsx):
-- `2D_MAP` - Leaflet-based map view
-- `3D_SIMULATION` - Three.js/React Three Fiber 3D visualization
-- `SYSTEM_STATUS` - Real-time system metrics
-- `ANALYTICS` - Charts and data analytics
-- `ALERTS` - Alert log viewer
-- `SETTINGS` - User preferences
-- `ABOUT` - Information page
+- `@/` → `client/src/`
+- `@shared/` → `shared/`
 
-**3D Visualization**:
-Built with React Three Fiber and @react-three/drei. Key 3D components in `client/src/components/three/`:
-- `AircraftModel.tsx` - 3D aircraft representations with threat-level coloring
-- `MissileModel.tsx` - Missile trajectory visualization
-- `RadarSweep.tsx` - Animated radar sweep effect
-- `RadarParticles.tsx` - Particle system for radar visualization
-- `Terrain.tsx` - Ground terrain rendering
-- `RangeIndicator.tsx` - Radar range visualization
+Configured in both `vite.config.ts` and `tsconfig.json`.
 
-The 3D view includes WebGL support detection and fallback UI when unavailable.
+### Client-Side Navigation
 
-**Simulation Logic**:
-The simulation ([client/src/lib/simulation.ts](client/src/lib/simulation.ts)) defines core types and utilities:
-- `Aircraft` - Position, speed, heading, type, callsign, threat level
-- `Alert` - Timestamp, type, priority, message, optional position
-- `Missile` - Launch/target/current position, speed, active state
-- Helper functions: `generateRandomAircraft()`, `generateRandomAlert()`, `calculateDistance()`, `getThreatLevelColor()`
+**Tab-based, not URL-routed.** `Layout.tsx` holds `activeTab` state and renders views via a switch statement. No browser history or back-button support.
 
-**UI Components**:
-Uses shadcn/ui components (Radix UI primitives) located in `client/src/components/ui/`. The project includes a comprehensive set of pre-built components (Button, Card, Dialog, etc.) styled with Tailwind CSS.
+Tab types: `2D_MAP`, `3D_SIMULATION`, `SYSTEM_STATUS`, `ANALYTICS`, `ALERTS`, `SETTINGS`, `ABOUT`
 
-### Backend Architecture
+View components live in `client/src/components/views/`.
 
-**Server Setup** ([server/index.ts](server/index.ts)):
-- Express server on port 5000 (fixed)
-- Serves both API routes and client build
-- Vite dev middleware in development mode
-- Request/response logging for API routes
+### State Management (Zustand)
 
-**Routes** ([server/routes.ts](server/routes.ts)):
-- Currently minimal - template for adding API endpoints with `/api` prefix
-- Access database via `storage` interface
+All stores use `subscribeWithSelector` middleware. Key stores:
 
-**Storage** ([server/storage.ts](server/storage.ts)):
-- Abstraction layer with `IStorage` interface
-- `MemStorage` implementation for in-memory data (users table)
-- Designed to be swapped with database-backed implementation
+| Store | File | Purpose |
+|-------|------|---------|
+| `useSimulation` | `client/src/lib/stores/useSimulation.ts` | Aircraft, alerts, missiles, system status, analytics. Runs 5 concurrent intervals. |
+| `usePlayback` | `client/src/lib/stores/usePlayback.ts` | Time-travel: pause/rewind with snapshot history (max 100). |
+| `useSettings` | `client/src/lib/stores/useSettings.ts` | Persisted to localStorage (`air-defense-settings`). Controls day/night, refresh rate, view mode. |
+| `useAudio` | `client/src/lib/stores/useAudio.tsx` | Sound effects via Howler.js. Starts muted. |
 
-**Database** ([shared/schema.ts](shared/schema.ts)):
-- Drizzle ORM with PostgreSQL
-- Schema defined with `drizzle-orm/pg-core`
-- Zod validation schemas via `drizzle-zod`
-- Currently defines `users` table with username/password
+### Simulation Intervals (when running)
 
-### Build System
+| Interval | Rate | What it does |
+|----------|------|-------------|
+| Aircraft position | 2s | Updates positions, randomly adds/removes aircraft |
+| Alert generation | 5–15s | 70% chance to create random alert |
+| Analytics | 10s | Detection rate and system load data |
+| Missile movement | 100ms | Smooth interpolation toward target |
+| Auto-launch | 8–15s | Launches at HOSTILE/SUSPECT aircraft (60% chance) |
 
-**Vite Configuration** ([vite.config.ts](vite.config.ts)):
-- React plugin with JSX support
-- Runtime error overlay for development
-- GLSL shader support (`vite-plugin-glsl`)
-- Path aliases: `@/` → `client/src/`, `@shared/` → `shared/`
-- Client root: `client/`, build output: `dist/public/`
-- Asset handling for 3D models (.gltf, .glb) and audio (.mp3, .ogg, .wav)
+### Dual Simulation Architecture
 
-**TypeScript Configuration** ([tsconfig.json](tsconfig.json)):
-- Strict mode enabled
-- Module resolution: bundler
-- Path aliases match Vite config
-- Includes client, server, and shared directories
+Both client (`useSimulation` store) and server (`server/routes.ts`) run **independent** simulation loops. The server is the source of truth when connected via WebSocket (`/ws`). The client simulation enables offline operation. There is no real sync mechanism between them.
 
-**Production Build**:
-- Client: Vite bundles React app to `dist/public/`
-- Server: esbuild bundles `server/index.ts` to `dist/index.js` (ESM format, external packages)
+### Server API
 
-## Key Technical Details
+All routes prefixed with `/api`. Key endpoints:
 
-### Simulation Updates
-The simulation runs multiple concurrent intervals when active:
-- Aircraft position updates: every 2 seconds
-- Alert generation: every 5-15 seconds (randomized)
-- Analytics updates: every 10 seconds
-- Missile position updates: every 100ms (smooth animation)
-- Missile auto-launch at threats: every 8-15 seconds
+- `GET /api/aircraft` / `GET /api/aircraft/:id`
+- `GET /api/alerts` / `DELETE /api/alerts`
+- `GET /api/missiles` / `GET /api/missiles/active` / `POST /api/missiles/launch`
+- `GET /api/system/status`
+- `POST /api/simulation/start` / `POST /api/simulation/stop`
+- `GET /api/health`
 
-### Coordinate System
-- Latitude/Longitude for 2D positioning (European airspace: 35-70°N, -10-40°E)
-- Altitude in meters (1000-13000m range)
-- Speed in km/h
-- Heading in degrees (0-359)
+WebSocket at `/ws` handles: `start_simulation`, `stop_simulation`, `launch_missile`, `get_state`.
+
+### Storage Layer
+
+`server/storage.ts` defines an `IStorage` interface with `MemStorage` implementation (in-memory only). The Drizzle schema in `shared/schema.ts` defines tables (`users`, `aircraftTable`, `alertsTable`, `missilesTable`, `systemStatusTable`) but runtime uses `MemStorage` — all data is lost on server restart.
+
+### 3D Visualization
+
+Components in `client/src/components/three/`. Must be inside `<Canvas>` from React Three Fiber.
+
+**Coordinate conversion** (lat/lng to 3D world, centered on 50°N 10°E):
+- `x = (lng - 10) * 2`
+- `z = -(lat - 50) * 2`
+- `y = (altitude / 1000) * 0.15 + 0.5`
+
+WebGL detection with fallback UI when unavailable.
 
 ### Threat Level System
-Aircraft threat levels determine color coding and missile targeting:
-- `FRIENDLY` (green #10b981) - Safe, no action
-- `NEUTRAL` (blue #3b82f6) - Monitored
-- `SUSPECT` (orange #f59e0b) - High alert, may be targeted
-- `HOSTILE` (red #ef4444) - Active threat, auto-targeted
 
-### Environment Variables
-Database connection requires `DATABASE_URL` environment variable (see [drizzle.config.ts](drizzle.config.ts)).
+| Level | Color | Behavior |
+|-------|-------|----------|
+| `FRIENDLY` | `#10b981` (green) | No action |
+| `NEUTRAL` | `#3b82f6` (blue) | Monitored |
+| `SUSPECT` | `#f59e0b` (orange) | May be targeted |
+| `HOSTILE` | `#ef4444` (red) | Auto-targeted by missiles |
 
-## Dependencies
+Threat assignment varies by aircraft type (e.g., Commercial = 90% FRIENDLY; Unknown = 30% HOSTILE).
 
-**Frontend Key Libraries**:
-- React 18 with React Router for navigation
-- Three.js with React Three Fiber and @react-three/drei for 3D graphics
-- Zustand for state management
-- TanStack Query for server state
-- Recharts for data visualization
-- Leaflet (react-leaflet) for 2D maps
-- Framer Motion for animations
-- next-themes for theme management
-- Tailwind CSS with shadcn/ui components
+### Coordinate System
 
-**Backend Key Libraries**:
-- Express for HTTP server
-- Drizzle ORM with PostgreSQL (@neondatabase/serverless)
-- WebSocket support (ws package)
+European airspace: Lat 35–70°N, Lng -10–40°E. Altitude 1000–13000m. Speed in km/h. Heading in degrees (0–359). Radar center at 50°N, 10°E.
 
-## Development Notes
+## Key Patterns
 
-### Adding New API Routes
-1. Define route handlers in [server/routes.ts](server/routes.ts)
-2. Prefix all routes with `/api`
-3. Use `storage` interface for database operations
-4. Update `IStorage` interface in [server/storage.ts](server/storage.ts) if adding new CRUD methods
+### Adding API Routes
+1. Add handler in `server/routes.ts` with `/api` prefix
+2. Use `storage` interface for data operations
+3. Update `IStorage` + `MemStorage` in `server/storage.ts` if new CRUD methods needed
 
-### Adding New Database Tables
-1. Define table schema in [shared/schema.ts](shared/schema.ts) using Drizzle syntax
-2. Create Zod validation schemas with `createInsertSchema()`
-3. Run `npm run db:push` to sync changes
-4. Update storage interface and implementation
-
-### Adding New Zustand Stores
-Follow the pattern in existing stores:
-- Use `subscribeWithSelector` middleware for cross-store subscriptions
-- Define state interface with data and action methods
-- Export typed hooks via `create<StateInterface>()`
+### Adding Zustand Stores
+- Use `subscribeWithSelector` middleware
+- Define state interface with data + action methods
 - Clean up intervals/timers in stop/cleanup actions
 
-### Working with 3D Components
-- All Three.js components must be inside `<Canvas>` from React Three Fiber
-- Use `<Suspense>` for lazy loading 3D assets
-- Position calculations: convert lat/lng to 3D world coordinates for rendering
-- Keep component files in `client/src/components/three/`
+### Styling
+- Tailwind CSS with shadcn/ui (Radix primitives) in `client/src/components/ui/`
+- Dark mode via `next-themes` with class strategy (`dark:` prefix)
+- Theme CSS variables (HSL) defined in `client/src/index.css`
 
-### Styling Guidelines
-- Use Tailwind utility classes
-- Dark mode via `dark:` prefix (managed by next-themes)
-- shadcn/ui components are pre-styled but customizable
-- Use CSS variables from `client/src/index.css` for theme colors
+### Missile System
+- Starts with 12 missiles (`missileReady` count)
+- Each launch decrements count — no restock mechanism
+- Radar launch origin: 50°N, 10°E
