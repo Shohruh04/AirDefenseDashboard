@@ -48,7 +48,7 @@ export const useSimulation = create<SimulationState>()(
       aircraftCount: 0,
       threatLevel: 'LOW',
       systemReadiness: 95.2,
-      missileReady: 12,
+      missileReady: 30,
     },
     analytics: {
       detectionsPerMinute: Array(20).fill(0).map(() => Math.floor(Math.random() * 15) + 5),
@@ -77,8 +77,8 @@ export const useSimulation = create<SimulationState>()(
 
       set({ isRunning: true });
 
-      // Generate initial aircraft
-      const initialAircraft = Array(8).fill(0).map(() => generateRandomAircraft());
+      // Generate initial aircraft — start with a packed airspace
+      const initialAircraft = Array(15).fill(0).map(() => generateRandomAircraft());
       set({ aircraft: initialAircraft });
 
       // Update aircraft positions every 2 seconds
@@ -122,11 +122,15 @@ export const useSimulation = create<SimulationState>()(
           };
         });
 
-        // Occasionally add new aircraft or remove old ones
+        // Aggressively spawn new aircraft to keep things busy
         let finalAircraft = updatedAircraft;
-        if (Math.random() < 0.1 && finalAircraft.length < 12) {
+        if (Math.random() < 0.35 && finalAircraft.length < 20) {
           finalAircraft.push(generateRandomAircraft());
-        } else if (Math.random() < 0.05 && finalAircraft.length > 3) {
+        }
+        if (Math.random() < 0.15 && finalAircraft.length < 20) {
+          finalAircraft.push(generateRandomAircraft()); // double-spawn chance
+        }
+        if (Math.random() < 0.08 && finalAircraft.length > 6) {
           finalAircraft = finalAircraft.slice(1);
         }
 
@@ -144,13 +148,13 @@ export const useSimulation = create<SimulationState>()(
         });
       }, 2000);
 
-      // Generate alerts every 5-15 seconds
+      // Generate alerts every 3-8 seconds
       alertInterval = setInterval(() => {
-        if (Math.random() < 0.7) { // 70% chance to generate alert
+        if (Math.random() < 0.85) {
           const alert = generateRandomAlert();
           get().addAlert(alert);
         }
-      }, Math.random() * 10000 + 5000);
+      }, Math.random() * 5000 + 3000);
 
       // Update analytics every 10 seconds
       analyticsInterval = setInterval(() => {
@@ -162,19 +166,21 @@ export const useSimulation = create<SimulationState>()(
         get().updateMissiles();
       }, 100);
 
-      // Auto-launch missiles at hostile/suspect targets every 8-15 seconds
+      // Auto-launch missiles at hostile/suspect targets every 3-6 seconds
       missileLaunchInterval = setInterval(() => {
         const currentState = get();
+        if (currentState.systemStatus.missileReady <= 0) return;
+
         const threats = currentState.aircraft.filter(
-          ac => (ac.threatLevel === 'HOSTILE' || ac.threatLevel === 'SUSPECT') && 
+          ac => (ac.threatLevel === 'HOSTILE' || ac.threatLevel === 'SUSPECT') &&
           !currentState.missiles.some(m => m.targetId === ac.id && m.active)
         );
-        
-        if (threats.length > 0 && Math.random() < 0.6) {
+
+        if (threats.length > 0 && Math.random() < 0.8) {
           const target = threats[Math.floor(Math.random() * threats.length)];
           get().launchMissile(target.id);
         }
-      }, Math.random() * 7000 + 8000);
+      }, Math.random() * 3000 + 3000);
     },
 
     stopSimulation: () => {
@@ -310,8 +316,26 @@ export const useSimulation = create<SimulationState>()(
           const dz = missile.targetPosition.altitude - missile.currentPosition.altitude;
           const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-          // Check if missile reached target
+          // Check if missile reached target — destroy aircraft on impact
           if (distance < 0.1) {
+            // Remove the targeted aircraft
+            const currentAircraft = get().aircraft;
+            set({
+              aircraft: currentAircraft.filter(ac => ac.id !== missile.targetId),
+            });
+            // Generate destruction alert
+            get().addAlert({
+              id: `ALT${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
+              timestamp: Date.now(),
+              type: 'THREAT',
+              priority: 'HIGH',
+              message: `Target ${target.callsign} neutralized by interceptor`,
+              position: { lat: target.position.lat, lng: target.position.lng },
+            });
+            // Restock 1 missile after successful intercept
+            set((s) => ({
+              systemStatus: { ...s.systemStatus, missileReady: Math.min(30, s.systemStatus.missileReady + 1) },
+            }));
             return { ...missile, active: false };
           }
 

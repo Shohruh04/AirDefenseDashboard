@@ -57,35 +57,57 @@ const AIRCRAFT_TYPES = [
 ] as const;
 const CALLSIGN_PREFIXES = ["AIR", "SKY", "FLT", "UAV", "MIL", "PVT"];
 
+// Weighted type selection — more drones and military for action
+const AIRCRAFT_TYPE_WEIGHTS: { type: Aircraft["type"]; weight: number }[] = [
+  { type: "Drone", weight: 35 },
+  { type: "Military", weight: 30 },
+  { type: "Unknown", weight: 15 },
+  { type: "Commercial", weight: 12 },
+  { type: "Private", weight: 8 },
+];
+
+function pickWeightedType(): Aircraft["type"] {
+  const total = AIRCRAFT_TYPE_WEIGHTS.reduce((s, w) => s + w.weight, 0);
+  let r = Math.random() * total;
+  for (const entry of AIRCRAFT_TYPE_WEIGHTS) {
+    r -= entry.weight;
+    if (r <= 0) return entry.type;
+  }
+  return "Drone";
+}
+
 export function generateRandomAircraft(): Aircraft {
   const id = `AC${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-  const type =
-    AIRCRAFT_TYPES[Math.floor(Math.random() * AIRCRAFT_TYPES.length)];
-  const prefix =
-    CALLSIGN_PREFIXES[Math.floor(Math.random() * CALLSIGN_PREFIXES.length)];
+  const type = pickWeightedType();
+
+  const prefixMap: Record<Aircraft["type"], string> = {
+    Drone: "UAV",
+    Military: "MIL",
+    Commercial: "AIR",
+    Private: "PVT",
+    Unknown: "UNK",
+  };
+  const prefix = prefixMap[type];
   const number = Math.floor(Math.random() * 999) + 100;
 
-  // Generate position within European airspace (rough bounds)
-  const lat = Math.random() * 35 + 35; // 35-70 degrees North
-  const lng = Math.random() * 50 - 10; // -10 to 40 degrees East
+  // Generate position closer to radar center (50N, 10E) for more visible action
+  const lat = 44 + Math.random() * 12; // 44-56°N — tighter around center
+  const lng = 4 + Math.random() * 12;  // 4-16°E — tighter around center
 
-  // Determine threat level based on aircraft type and behavior
+  // More aggressive threat assignments
   let threatLevel: Aircraft["threatLevel"];
   const random = Math.random();
 
   if (type === "Commercial") {
-    threatLevel = random < 0.9 ? "FRIENDLY" : "NEUTRAL";
+    threatLevel = random < 0.7 ? "FRIENDLY" : random < 0.9 ? "NEUTRAL" : "SUSPECT";
   } else if (type === "Military") {
-    threatLevel =
-      random < 0.5 ? "FRIENDLY" : random < 0.8 ? "NEUTRAL" : "SUSPECT";
+    threatLevel = random < 0.3 ? "FRIENDLY" : random < 0.55 ? "NEUTRAL" : random < 0.8 ? "SUSPECT" : "HOSTILE";
   } else if (type === "Drone") {
-    threatLevel =
-      random < 0.3 ? "NEUTRAL" : random < 0.7 ? "SUSPECT" : "HOSTILE";
+    threatLevel = random < 0.15 ? "NEUTRAL" : random < 0.45 ? "SUSPECT" : "HOSTILE";
   } else if (type === "Unknown") {
-    threatLevel =
-      random < 0.3 ? "NEUTRAL" : random < 0.7 ? "SUSPECT" : "HOSTILE";
+    threatLevel = random < 0.15 ? "NEUTRAL" : random < 0.5 ? "SUSPECT" : "HOSTILE";
   } else {
-    threatLevel = random < 0.8 ? "FRIENDLY" : "NEUTRAL";
+    threatLevel = random < 0.7 ? "FRIENDLY" : "NEUTRAL";
   }
 
   const isDrone = type === "Drone";
@@ -102,7 +124,7 @@ export function generateRandomAircraft(): Aircraft {
     speed: isDrone
       ? Math.floor(Math.random() * 150) + 50
       : Math.floor(Math.random() * 600) + 200,
-    heading: Math.floor(Math.random() * 360), // 0-359 degrees
+    heading: Math.floor(Math.random() * 360),
     type,
     callsign: `${prefix}${number}`,
     lastUpdate: Date.now(),

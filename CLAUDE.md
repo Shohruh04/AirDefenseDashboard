@@ -9,14 +9,16 @@ Air Defense Dashboard — a real-time aircraft tracking and threat monitoring si
 ## Development Commands
 
 ```bash
-npm run dev          # Start dev server with Vite HMR (port 5000)
+npm run dev          # Start dev server (tsx runs server/index.ts with Vite HMR middleware, port 5000)
 npm run build        # Build client (Vite → dist/public/) + server (esbuild → dist/index.js)
-npm start            # Run production build (NODE_ENV=production)
-npm run check        # TypeScript type-check (no emit)
+npm start            # Run production build (NODE_ENV=production node dist/index.js)
+npm run check        # TypeScript type-check only (tsc --noEmit)
 npm run db:push      # Push Drizzle schema to PostgreSQL
 ```
 
 Requires `DATABASE_URL` env var — see `.env.example`. Docker Compose available via `docker-compose.yml` for local PostgreSQL.
+
+No test runner, linter, or CI pipeline is configured.
 
 ## Architecture
 
@@ -33,6 +35,10 @@ Requires `DATABASE_URL` env var — see `.env.example`. Docker Compose available
 
 Configured in both `vite.config.ts` and `tsconfig.json`.
 
+### Dev Server Pipeline
+
+`npm run dev` → `tsx server/index.ts` → Express app starts → `server/vite.ts` sets up Vite dev middleware with HMR. In production, Express serves static files from `dist/public/`. Vite config includes GLSL shader plugin (`vite-plugin-glsl`) and asset support for `.gltf`, `.glb`, `.mp3`, `.ogg`, `.wav`.
+
 ### Client-Side Navigation
 
 **Tab-based, not URL-routed.** `Layout.tsx` holds `activeTab` state and renders views via a switch statement. No browser history or back-button support.
@@ -48,36 +54,51 @@ All stores use `subscribeWithSelector` middleware. Key stores:
 | Store | File | Purpose |
 |-------|------|---------|
 | `useSimulation` | `client/src/lib/stores/useSimulation.ts` | Aircraft, alerts, missiles, system status, analytics. Runs 5 concurrent intervals. |
-| `usePlayback` | `client/src/lib/stores/usePlayback.ts` | Time-travel: pause/rewind with snapshot history (max 100). |
+| `usePlayback` | `client/src/lib/stores/usePlayback.ts` | Time-travel: pause/rewind with snapshot history (max 100). No UI controls wired up yet. |
 | `useSettings` | `client/src/lib/stores/useSettings.ts` | Persisted to localStorage (`air-defense-settings`). Controls day/night, refresh rate, view mode. |
-| `useAudio` | `client/src/lib/stores/useAudio.tsx` | Sound effects via Howler.js. Starts muted. |
+| `useAudio` | `client/src/lib/stores/useAudio.tsx` | Sound effects via HTMLAudioElement (not Howler.js despite the dependency). Starts muted. |
+
+### Dual Simulation Architecture
+
+Both client (`useSimulation` store) and server (`server/routes.ts`) run **independent** simulation loops. The server broadcasts state via WebSocket (`/ws`). The client simulation enables offline operation. There is no real sync mechanism — they diverge.
+
+**Key differences between client and server simulations:**
+
+| Aspect | Client | Server |
+|--------|--------|--------|
+| Initial missiles | 30 | 12 |
+| Missile restock | +1 on intercept (max 30) | No restock |
+| Drone threat (HOSTILE) | 55% | 30% |
+| Commercial threat (FRIENDLY) | 70% | 90% |
+| Alert generation chance | 85% every 3-8s | 70% every 5-15s |
+| Auto-launch chance | 80% every 3-6s | 60% every 8-15s |
+| Initial aircraft | 15 | 8 |
+| Aircraft spawn bounds | 44-56°N, 4-16°E (tighter) | 35-70°N, -10-40°E (full) |
 
 ### Simulation Intervals (when running)
 
 | Interval | Rate | What it does |
 |----------|------|-------------|
 | Aircraft position | 2s | Updates positions, randomly adds/removes aircraft |
-| Alert generation | 5–15s | 70% chance to create random alert |
+| Alert generation | 3-8s (client) / 5-15s (server) | Generates random alerts |
 | Analytics | 10s | Detection rate and system load data |
 | Missile movement | 100ms | Smooth interpolation toward target |
-| Auto-launch | 8–15s | Launches at HOSTILE/SUSPECT aircraft (60% chance) |
-
-### Dual Simulation Architecture
-
-Both client (`useSimulation` store) and server (`server/routes.ts`) run **independent** simulation loops. The server is the source of truth when connected via WebSocket (`/ws`). The client simulation enables offline operation. There is no real sync mechanism between them.
+| Auto-launch | 3-6s (client) / 8-15s (server) | Launches at HOSTILE/SUSPECT aircraft |
 
 ### Server API
 
 All routes prefixed with `/api`. Key endpoints:
 
 - `GET /api/aircraft` / `GET /api/aircraft/:id`
-- `GET /api/alerts` / `DELETE /api/alerts`
+- `GET /api/alerts?limit=N` (default 100) / `DELETE /api/alerts`
 - `GET /api/missiles` / `GET /api/missiles/active` / `POST /api/missiles/launch`
 - `GET /api/system/status`
-- `POST /api/simulation/start` / `POST /api/simulation/stop`
+- `POST /api/simulation/start` / `POST /api/simulation/stop` / `GET /api/simulation/status`
 - `GET /api/health`
 
 WebSocket at `/ws` handles: `start_simulation`, `stop_simulation`, `launch_missile`, `get_state`.
+
+Broadcast events: `aircraft_update`, `new_alert`, `missile_launch`, `missile_impact`, `missiles_update`, `system_status`, `simulation_started`, `simulation_stopped`, `alerts_cleared`.
 
 ### Storage Layer
 
@@ -86,6 +107,15 @@ WebSocket at `/ws` handles: `start_simulation`, `stop_simulation`, `launch_missi
 ### 3D Visualization
 
 Components in `client/src/components/three/`. Must be inside `<Canvas>` from React Three Fiber.
+
+All 3D components use **Physically Based Rendering (PBR)** materials (metalness, roughness). Key components:
+- `Terrain.tsx` — Military base with buildings, runway, missile launchers, mountains, trees, watchtowers, vehicles
+- `AircraftModel.tsx` — 4 aircraft types (Military, Commercial, Private, Unknown) with navigation lights
+- `DroneModel.tsx` — Quadcopter with spinning propellers and hovering animation
+- `MissileModel.tsx` — Missile body with exhaust glow, smoke trail, target indicator
+- `RadarSweep.tsx` — Rotating dish, sweep beam, range rings (50/100/150km)
+- `RadarParticles.tsx` — 1000 floating green particles
+- `Sky.tsx` — Shader-based gradient dome, sun/moon, stars, clouds
 
 **Coordinate conversion** (lat/lng to 3D world, centered on 50°N 10°E):
 - `x = (lng - 10) * 2`
@@ -103,11 +133,9 @@ WebGL detection with fallback UI when unavailable.
 | `SUSPECT` | `#f59e0b` (orange) | May be targeted |
 | `HOSTILE` | `#ef4444` (red) | Auto-targeted by missiles |
 
-Threat assignment varies by aircraft type (e.g., Commercial = 90% FRIENDLY; Unknown = 30% HOSTILE).
-
 ### Coordinate System
 
-European airspace: Lat 35–70°N, Lng -10–40°E. Altitude 1000–13000m. Speed in km/h. Heading in degrees (0–359). Radar center at 50°N, 10°E.
+European airspace: Lat 35–70°N, Lng -10–40°E. Altitude 1000–13000m (drones: 100–3000m). Speed in km/h. Heading in degrees (0–359). Radar center at 50°N, 10°E. Missiles travel at 3000–3600 km/h.
 
 ## Key Patterns
 
@@ -115,6 +143,7 @@ European airspace: Lat 35–70°N, Lng -10–40°E. Altitude 1000–13000m. Spee
 1. Add handler in `server/routes.ts` with `/api` prefix
 2. Use `storage` interface for data operations
 3. Update `IStorage` + `MemStorage` in `server/storage.ts` if new CRUD methods needed
+4. Add Zod validation for request bodies
 
 ### Adding Zustand Stores
 - Use `subscribeWithSelector` middleware
@@ -127,6 +156,12 @@ European airspace: Lat 35–70°N, Lng -10–40°E. Altitude 1000–13000m. Spee
 - Theme CSS variables (HSL) defined in `client/src/index.css`
 
 ### Missile System
-- Starts with 12 missiles (`missileReady` count)
-- Each launch decrements count — no restock mechanism
+- Client: Starts with 30 missiles, restocks +1 on successful intercept (max 30)
+- Server: Starts with 12 missiles, no restock mechanism
 - Radar launch origin: 50°N, 10°E
+
+### Export Utilities
+`client/src/lib/exportUtils.ts` provides `exportToCSV()`, `exportAlertsToPDF()`, and `exportAnalyticsToPDF()` — PDF export uses HTML generation + browser print dialog.
+
+### Docker Deployment
+`Dockerfile` uses multi-stage build. `docker-compose.yml` runs app (port 5001→5000) + PostgreSQL 15 with health check on `/api/health`.
