@@ -1,17 +1,19 @@
 import React, { useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
+import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { Aircraft } from "../../lib/simulation";
 import { getThreatLevelColor, toWorldCoords } from "../../lib/simulation";
 
 interface AircraftModelProps {
   aircraft: Aircraft;
+  isDayMode: boolean;
   isSelected?: boolean;
   onSelect?: () => void;
   onDeselect?: () => void;
 }
 
-// Military/Fighter Aircraft - PBR materials
+// Military/Fighter Aircraft — PBR materials
 const MilitaryAircraft: React.FC<{ color: string }> = ({ color }) => (
   <group>
     <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
@@ -34,14 +36,16 @@ const MilitaryAircraft: React.FC<{ color: string }> = ({ color }) => (
       <boxGeometry args={[0.03, 0.3, 0.25]} />
       <meshStandardMaterial color={color} metalness={0.6} roughness={0.3} />
     </mesh>
+    {/* Engine exhaust glow */}
     <mesh position={[0, 0, -0.75]}>
       <sphereGeometry args={[0.06, 8, 8]} />
       <meshBasicMaterial color="#ff6600" />
     </mesh>
+    <pointLight position={[0, 0, -0.75]} color="#ff6600" intensity={0.3} distance={2} />
   </group>
 );
 
-// Commercial Airliner - PBR materials
+// Commercial Airliner — PBR materials
 const CommercialAircraft: React.FC<{ color: string }> = ({ color }) => (
   <group>
     <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
@@ -77,7 +81,7 @@ const CommercialAircraft: React.FC<{ color: string }> = ({ color }) => (
   </group>
 );
 
-// Private/Small Aircraft - PBR materials
+// Private/Small Aircraft — PBR materials
 const PrivateAircraft: React.FC<{ color: string }> = ({ color }) => (
   <group>
     <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
@@ -103,7 +107,7 @@ const PrivateAircraft: React.FC<{ color: string }> = ({ color }) => (
   </group>
 );
 
-// Unknown/UAV Aircraft - PBR materials
+// Unknown/UAV Aircraft — PBR materials
 const UnknownAircraft: React.FC<{ color: string }> = ({ color }) => (
   <group>
     <mesh castShadow>
@@ -131,13 +135,12 @@ const UnknownAircraft: React.FC<{ color: string }> = ({ color }) => (
   </group>
 );
 
-// Navigation lights component
+// Navigation lights with blinking strobe
 const NavigationLights: React.FC = () => {
   const strobeRef = useRef<THREE.Mesh>(null);
 
   useFrame((state) => {
     if (strobeRef.current) {
-      // 1Hz strobe blink
       const on = Math.sin(state.clock.elapsedTime * Math.PI * 2) > 0.7;
       (strobeRef.current.material as THREE.MeshBasicMaterial).opacity = on ? 1 : 0;
     }
@@ -145,21 +148,21 @@ const NavigationLights: React.FC = () => {
 
   return (
     <>
-      {/* Red - port (left wing) */}
+      {/* Red — port (left wing) */}
       <mesh position={[-0.7, 0, 0]}>
         <sphereGeometry args={[0.03, 6, 6]} />
         <meshBasicMaterial color="#ff0000" />
       </mesh>
       <pointLight position={[-0.7, 0, 0]} color="#ff0000" intensity={0.3} distance={2} />
 
-      {/* Green - starboard (right wing) */}
+      {/* Green — starboard (right wing) */}
       <mesh position={[0.7, 0, 0]}>
         <sphereGeometry args={[0.03, 6, 6]} />
         <meshBasicMaterial color="#00ff00" />
       </mesh>
       <pointLight position={[0.7, 0, 0]} color="#00ff00" intensity={0.3} distance={2} />
 
-      {/* White strobe - tail */}
+      {/* White strobe — tail */}
       <mesh ref={strobeRef} position={[0, 0.1, -0.6]}>
         <sphereGeometry args={[0.03, 6, 6]} />
         <meshBasicMaterial color="#ffffff" transparent />
@@ -170,11 +173,13 @@ const NavigationLights: React.FC = () => {
 
 const AircraftModel: React.FC<AircraftModelProps> = React.memo(({
   aircraft,
+  isDayMode,
   isSelected = false,
   onSelect,
   onDeselect,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
+  const selectionRef = useRef<THREE.Mesh>(null);
 
   const position = useMemo(() => {
     const [x, y, z] = toWorldCoords(aircraft.position.lat, aircraft.position.lng, aircraft.position.altitude);
@@ -183,7 +188,7 @@ const AircraftModel: React.FC<AircraftModelProps> = React.memo(({
 
   const color = useMemo(() => getThreatLevelColor(aircraft.threatLevel), [aircraft.threatLevel]);
 
-  useFrame((_state, delta) => {
+  useFrame((state, delta) => {
     if (!groupRef.current) return;
 
     // Frame-rate independent smooth interpolation
@@ -193,6 +198,12 @@ const AircraftModel: React.FC<AircraftModelProps> = React.memo(({
     // Set heading rotation
     const headingRad = (aircraft.heading * Math.PI) / 180;
     groupRef.current.rotation.y = -headingRad + Math.PI / 2;
+
+    // Pulsing selection ring
+    if (selectionRef.current && isSelected) {
+      const pulse = 0.4 + Math.sin(state.clock.elapsedTime * 3) * 0.2;
+      (selectionRef.current.material as THREE.MeshBasicMaterial).opacity = pulse;
+    }
   });
 
   const handleClick = (e: { stopPropagation: () => void }) => {
@@ -216,18 +227,33 @@ const AircraftModel: React.FC<AircraftModelProps> = React.memo(({
       {renderAircraft()}
       <NavigationLights />
 
-      {/* Selection indicator */}
+      {/* Selection indicator — pulsing */}
       {isSelected && (
-        <mesh position={[0, -0.3, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh ref={selectionRef} position={[0, -0.3, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.8, 1, 16]} />
           <meshBasicMaterial color={color} transparent opacity={0.6} side={THREE.DoubleSide} />
         </mesh>
       )}
 
-      {/* Aircraft label sprite */}
-      <sprite position={[0, 0.6, 0]} scale={[1.5, 0.4, 1]}>
-        <spriteMaterial color={color} transparent opacity={0.8} />
-      </sprite>
+      {/* Callsign label */}
+      {isSelected && (
+        <Html position={[0, 0.8, 0]} center distanceFactor={15}>
+          <div style={{
+            background: isDayMode ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.85)",
+            color,
+            padding: "2px 8px",
+            borderRadius: 4,
+            fontSize: 11,
+            fontFamily: "monospace",
+            fontWeight: "bold",
+            whiteSpace: "nowrap",
+            border: `1px solid ${color}`,
+            boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+          }}>
+            {aircraft.callsign} | {aircraft.type}
+          </div>
+        </Html>
+      )}
     </group>
   );
 });

@@ -1,7 +1,9 @@
 import React, { Suspense, useState, useEffect, useCallback } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, PerspectiveCamera, AdaptiveDpr } from "@react-three/drei";
-import { EffectComposer, Bloom } from "@react-three/postprocessing";
+import { OrbitControls, PerspectiveCamera, AdaptiveDpr, Environment } from "@react-three/drei";
+import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
+import { BlendFunction } from "postprocessing";
+import * as THREE from "three";
 import { useSettings } from "../../lib/stores/useSettings";
 import AircraftModel from "../three/AircraftModel";
 import DroneModel from "../three/DroneModel";
@@ -29,7 +31,7 @@ const checkWebGLSupport = (): boolean => {
 
 const Simulation3D: React.FC = () => {
   const { isDayMode, toggleDayMode } = useSettings();
-  const { aircraft, missiles, launchMissile, systemStatus, isRunning, startSimulation, stopSimulation } = useSimulation();
+  const { aircraft, missiles, systemStatus, isRunning, startSimulation, stopSimulation } = useSimulation();
   const [webglError, setWebglError] = useState(false);
   const [selectedAircraft, setSelectedAircraft] = useState<Aircraft | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
@@ -39,7 +41,6 @@ const Simulation3D: React.FC = () => {
     if (!checkWebGLSupport()) setWebglError(true);
   }, []);
 
-  // Ctrl+P to toggle perf monitor
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === "p") {
@@ -51,7 +52,6 @@ const Simulation3D: React.FC = () => {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // Update selected aircraft when aircraft list updates
   useEffect(() => {
     if (selectedAircraft) {
       const updated = aircraft.find((ac) => ac.id === selectedAircraft.id);
@@ -204,17 +204,19 @@ const Simulation3D: React.FC = () => {
       {/* 3D Canvas */}
       <Canvas
         className="w-full h-full"
-        shadows
+        shadows="soft"
         gl={{
           antialias: true,
           alpha: false,
           powerPreference: "high-performance",
           failIfMajorPerformanceCaveat: false,
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: isDayMode ? 1.2 : 0.8,
         }}
         frameloop="always"
         dpr={[1, 2]}
         onCreated={(state) => {
-          state.gl.setClearColor(isDayMode ? "#87CEEB" : "#0a0a1a");
+          state.gl.setClearColor(isDayMode ? "#87CEEB" : "#050510");
         }}
         onError={(error) => {
           console.error("WebGL Error:", error);
@@ -223,45 +225,70 @@ const Simulation3D: React.FC = () => {
       >
         <AdaptiveDpr pixelated />
 
-        <PerspectiveCamera makeDefault position={[0, 60, 120]} fov={55} near={1} far={1000} />
+        <PerspectiveCamera makeDefault position={[0, 60, 120]} fov={55} near={0.5} far={1500} />
 
         <OrbitControls
           enablePan
           enableZoom
           enableRotate
-          minDistance={30}
-          maxDistance={400}
-          maxPolarAngle={Math.PI / 2.1}
+          minDistance={20}
+          maxDistance={500}
+          maxPolarAngle={Math.PI / 2.05}
           enableDamping
           dampingFactor={0.05}
         />
 
-        {/* Lighting with shadows */}
-        <ambientLight intensity={isDayMode ? 0.4 : 0.1} />
+        {/* Multi-light setup for realism */}
+        {/* Hemisphere light: sky color from above, ground bounce from below */}
+        <hemisphereLight
+          args={[
+            isDayMode ? "#87CEEB" : "#1a1a3a",
+            isDayMode ? "#3d5a3d" : "#0a0a0f",
+            isDayMode ? 0.5 : 0.15,
+          ]}
+        />
+
+        {/* Main directional (sun/moon) */}
         <directionalLight
-          position={isDayMode ? [100, 80, 50] : [50, 60, 30]}
-          intensity={isDayMode ? 1 : 0.3}
-          color={isDayMode ? "#ffffff" : "#6080ff"}
+          position={isDayMode ? [120, 100, 60] : [50, 70, 30]}
+          intensity={isDayMode ? 1.5 : 0.2}
+          color={isDayMode ? "#fff5e6" : "#4466aa"}
           castShadow
           shadow-mapSize-width={2048}
           shadow-mapSize-height={2048}
-          shadow-camera-far={300}
-          shadow-camera-left={-100}
-          shadow-camera-right={100}
-          shadow-camera-top={100}
-          shadow-camera-bottom={-100}
+          shadow-camera-far={400}
+          shadow-camera-left={-120}
+          shadow-camera-right={120}
+          shadow-camera-top={120}
+          shadow-camera-bottom={-120}
+          shadow-bias={-0.0005}
         />
 
-        {/* Scene fog for depth */}
-        <fog attach="fog" args={[isDayMode ? "#87CEEB" : "#0a0a1a", 150, 500]} />
+        {/* Fill light from opposite side */}
+        <directionalLight
+          position={isDayMode ? [-80, 40, -60] : [-30, 20, -40]}
+          intensity={isDayMode ? 0.3 : 0.05}
+          color={isDayMode ? "#b0c4de" : "#223355"}
+        />
+
+        {/* Warm ground bounce for day */}
+        {isDayMode && (
+          <pointLight position={[0, -5, 0]} intensity={0.15} color="#c4a882" distance={200} />
+        )}
+
+        {/* Scene fog for atmospheric depth */}
+        <fog attach="fog" args={[isDayMode ? "#b8d4e8" : "#050510", 100, 600]} />
 
         <Suspense fallback={null}>
+          {/* Environment map for PBR reflections */}
+          <Environment preset={isDayMode ? "sunset" : "night"} background={false} />
+
           <Sky isDayMode={isDayMode} />
           <Terrain isDayMode={isDayMode} />
-          <RadarSweep />
+          <RadarSweep isDayMode={isDayMode} />
           <RadarParticles />
 
-          {/* Aircraft — route drones to DroneModel */}
+          {/* Aircraft */}
           {aircraft.map((ac) =>
             ac.type === "Drone" ? (
               <DroneModel
@@ -275,6 +302,7 @@ const Simulation3D: React.FC = () => {
               <AircraftModel
                 key={ac.id}
                 aircraft={ac}
+                isDayMode={isDayMode}
                 isSelected={selectedAircraft?.id === ac.id}
                 onSelect={() => handleSelectAircraft(ac)}
                 onDeselect={handleDeselectAircraft}
@@ -287,13 +315,18 @@ const Simulation3D: React.FC = () => {
             <MissileModel key={missile.id} missile={missile} />
           ))}
 
-          {/* Postprocessing effects */}
+          {/* Postprocessing */}
           <EffectComposer>
             <Bloom
-              luminanceThreshold={0.8}
-              luminanceSmoothing={0.3}
-              intensity={0.5}
+              luminanceThreshold={isDayMode ? 0.9 : 0.6}
+              luminanceSmoothing={0.4}
+              intensity={isDayMode ? 0.3 : 0.8}
               mipmapBlur
+            />
+            <Vignette
+              offset={0.3}
+              darkness={isDayMode ? 0.3 : 0.6}
+              blendFunction={BlendFunction.NORMAL}
             />
           </EffectComposer>
         </Suspense>

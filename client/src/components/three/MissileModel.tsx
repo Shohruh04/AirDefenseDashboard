@@ -12,6 +12,7 @@ interface MissileModelProps {
 const MissileModel: React.FC<MissileModelProps> = React.memo(({ missile }) => {
   const groupRef = useRef<THREE.Group>(null);
   const exhaustRef = useRef<THREE.Mesh>(null);
+  const targetRingRef = useRef<THREE.Mesh>(null);
 
   const currentPos = useMemo(() => {
     const [x, y, z] = toWorldCoords(missile.currentPosition.lat, missile.currentPosition.lng, missile.currentPosition.altitude);
@@ -57,9 +58,18 @@ const MissileModel: React.FC<MissileModelProps> = React.memo(({ missile }) => {
     groupRef.current.lookAt(lookAt);
     groupRef.current.rotateX(Math.PI / 2);
 
+    // Exhaust flicker
     if (exhaustRef.current) {
       const flicker = 0.9 + Math.sin(state.clock.elapsedTime * 50) * 0.1;
       exhaustRef.current.scale.setScalar(flicker);
+    }
+
+    // Target ring pulse
+    if (targetRingRef.current) {
+      const pulse = 0.3 + Math.sin(state.clock.elapsedTime * 4) * 0.15;
+      (targetRingRef.current.material as THREE.MeshBasicMaterial).opacity = pulse;
+      const s = 1 + Math.sin(state.clock.elapsedTime * 2) * 0.1;
+      targetRingRef.current.scale.set(s, s, 1);
     }
   });
 
@@ -67,13 +77,13 @@ const MissileModel: React.FC<MissileModelProps> = React.memo(({ missile }) => {
 
   return (
     <group>
-      {/* Trail */}
+      {/* Trail — fire + smoke */}
       <Line points={trailPoints} color="#ff6600" lineWidth={3} transparent opacity={0.6} />
       <Line points={trailPoints} color="#888888" lineWidth={6} transparent opacity={0.2} />
 
       {/* Missile Body */}
       <group ref={groupRef}>
-        {/* Body - PBR metallic */}
+        {/* Body — PBR metallic */}
         <mesh castShadow>
           <cylinderGeometry args={[0.05, 0.08, 0.8, 12]} />
           <meshStandardMaterial color="#c0c0c0" metalness={0.8} roughness={0.2} />
@@ -119,11 +129,16 @@ const MissileModel: React.FC<MissileModelProps> = React.memo(({ missile }) => {
         <pointLight position={[0, -0.5, 0]} color="#ff6600" intensity={2} distance={5} />
       </group>
 
-      {/* Target indicator */}
+      {/* Target indicator — pulsing */}
       <group position={targetPos}>
-        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh ref={targetRingRef} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[1, 1.3, 16]} />
           <meshBasicMaterial color="#ff0000" transparent opacity={0.4} side={THREE.DoubleSide} />
+        </mesh>
+        {/* Inner crosshair */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.2, 0.4, 4]} />
+          <meshBasicMaterial color="#ff0000" transparent opacity={0.5} side={THREE.DoubleSide} />
         </mesh>
       </group>
 
