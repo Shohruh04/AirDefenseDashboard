@@ -21,46 +21,190 @@ const RADAR_RANGES = [
   { radius: 300000, color: "#ff3333", label: "300km", dash: "16 8" },
 ];
 
+// Aircraft type configs with realistic top-down silhouettes (64×64 viewBox for high detail)
+// Paths modeled after real aircraft planform views (FlightRadar24 / ADS-B style)
+const AIRCRAFT_CONFIG: Record<string, {
+  size: number; viewBox: string; fuselage: string; wings: string;
+  tail: string; extras: string; label: string;
+}> = {
+  Military: {
+    size: 34,
+    viewBox: "0 0 64 64",
+    // F-16-style fighter: pointed radome, blended wing body, single vertical stab
+    fuselage: `M32 2 C31 2 30.5 3 30 5 L29.5 10 L29 16 L29 38 L28.5 44 L27 50 L27 54 L29 54
+               L30 52 L31 50 L32 48 L33 50 L34 52 L35 54 L37 54 L37 50 L35.5 44 L35 38
+               L35 16 L34.5 10 L34 5 C33.5 3 33 2 32 2 Z`,
+    // Delta wings with LERX
+    wings: `M29 16 L27 18 L24 20 L14 28 L6 32 L5 33 L5.5 35 L14 32 L24 29 L29 27 Z
+            M35 16 L37 18 L40 20 L50 28 L58 32 L59 33 L58.5 35 L50 32 L40 29 L35 27 Z`,
+    // Horizontal stabilizers
+    tail: `M28.5 44 L22 50 L20 51 L20 53 L23 52 L29 48 Z
+           M35.5 44 L42 50 L44 51 L44 53 L41 52 L35 48 Z`,
+    // Canopy + intake
+    extras: `M32 7 C30.5 7 30 8 30 10 L30.5 14 L32 15 L33.5 14 L34 10 C34 8 33.5 7 32 7 Z`,
+    label: "MIL",
+  },
+  Commercial: {
+    size: 38,
+    viewBox: "0 0 64 64",
+    // Boeing 737 / A320 style: cylindrical fuselage, swept wings, underwing engines
+    fuselage: `M32 1 C30.5 1 30 2.5 29.5 5 L29 10 L28.5 18 L28.5 40 L28 46 L27.5 50
+               L28 52 L30 54 L32 56 L34 54 L36 52 L36.5 50 L36 46 L35.5 40 L35.5 18
+               L35 10 L34.5 5 C34 2.5 33.5 1 32 1 Z`,
+    // Swept wings (wide span, tapered tips)
+    wings: `M28.5 22 L26 23 L18 26 L8 30 L3 32 L2 33.5 L3 34.5 L8 33 L18 30 L26 27.5
+            L28.5 26.5 Z
+            M35.5 22 L38 23 L46 26 L56 30 L61 32 L62 33.5 L61 34.5 L56 33 L46 30 L38 27.5
+            L35.5 26.5 Z`,
+    // Horizontal stabilizers + vertical tail fin
+    tail: `M28 47 L22 52 L19 53.5 L19 55 L22 54 L28 50 Z
+           M36 47 L42 52 L45 53.5 L45 55 L42 54 L36 50 Z
+           M31 42 L31 38 L32 36 L33 38 L33 42 Z`,
+    // Engine nacelles (2 underwing pods)
+    extras: `M18 27 C17 27 16.5 28 16.5 29 L16.5 32 C16.5 33 17 33.5 18 33.5
+             C19 33.5 19.5 33 19.5 32 L19.5 29 C19.5 28 19 27 18 27 Z
+             M46 27 C45 27 44.5 28 44.5 29 L44.5 32 C44.5 33 45 33.5 46 33.5
+             C47 33.5 47.5 33 47.5 32 L47.5 29 C47.5 28 47 27 46 27 Z`,
+    label: "CIV",
+  },
+  Drone: {
+    size: 26,
+    viewBox: "0 0 64 64",
+    // MQ-9 Reaper style: long slim fuselage, high-aspect straight wings, V-tail
+    fuselage: `M32 4 C31 4 30.5 5 30.5 7 L30.5 12 L31 18 L31 46 L30.5 50 L30 52
+               L31 54 L32 56 L33 54 L34 52 L33.5 50 L33 46 L33 18 L33 12 L33.5 7
+               C33.5 5 33 4 32 4 Z`,
+    // Long straight wings (high aspect ratio like a glider)
+    wings: `M31 20 L28 20.5 L18 22 L6 24 L2 25 L1.5 26.5 L2.5 27 L6 26 L18 24.5
+            L28 23 L31 22.5 Z
+            M33 20 L36 20.5 L46 22 L58 24 L62 25 L62.5 26.5 L61.5 27 L58 26 L46 24.5
+            L36 23 L33 22.5 Z`,
+    // V-tail
+    tail: `M30.5 50 L25 55 L24 56 L24.5 57.5 L26 56.5 L31 52 Z
+           M33.5 50 L39 55 L40 56 L39.5 57.5 L38 56.5 L33 52 Z`,
+    // Sensor ball under nose
+    extras: `M32 10 C30.5 10 30 11 30 12 C30 13 30.5 13.5 32 13.5
+             C33.5 13.5 34 13 34 12 C34 11 33.5 10 32 10 Z`,
+    label: "UAV",
+  },
+  Private: {
+    size: 30,
+    viewBox: "0 0 64 64",
+    // Cessna 172 style: high straight wings, boxy fuselage, conventional tail
+    fuselage: `M32 3 C30.5 3 30 4.5 30 7 L30 12 L29.5 18 L29.5 40 L29 44 L28.5 48
+               L29.5 50 L31 52 L32 54 L33 52 L34.5 50 L35.5 48 L35 44 L34.5 40
+               L34.5 18 L34 12 L34 7 C34 4.5 33.5 3 32 3 Z`,
+    // Straight high wings (untapered, Cessna-style)
+    wings: `M29.5 20 L27 20 L16 20.5 L6 21 L3 21.5 L2.5 23 L3.5 23.5 L6 23
+            L16 22.5 L27 22 L29.5 22 Z
+            M34.5 20 L37 20 L48 20.5 L58 21 L61 21.5 L61.5 23 L60.5 23.5 L58 23
+            L48 22.5 L37 22 L34.5 22 Z`,
+    // Conventional tail (horizontal + vertical stabilizer)
+    tail: `M29 45 L23 49 L21 50 L21 51.5 L23.5 51 L29 48 Z
+           M35 45 L41 49 L43 50 L43 51.5 L40.5 51 L35 48 Z
+           M31 40 L31 36 L32 34 L33 36 L33 40 Z`,
+    // Propeller disc at nose
+    extras: `M32 4 C29 3.5 28 4 28 5 C28 6 29 6.5 32 6.5 C35 6.5 36 6 36 5
+             C36 4 35 3.5 32 4 Z`,
+    label: "PVT",
+  },
+  Unknown: {
+    size: 28,
+    viewBox: "0 0 64 64",
+    // Unidentified radar return: stylized blip with question-mark feel
+    fuselage: `M32 6 L29 14 L29 18 L29 40 L28 46 L29.5 50 L32 52 L34.5 50 L36 46
+               L35 40 L35 18 L35 14 Z`,
+    wings: `M29 22 L22 26 L12 30 L8 32 L8 34 L12 33 L22 30 L29 27 Z
+            M35 22 L42 26 L52 30 L56 32 L56 34 L52 33 L42 30 L35 27 Z`,
+    tail: `M28 46 L23 50 L22 52 L24 52 L29 49 Z
+           M36 46 L41 50 L42 52 L40 52 L35 49 Z`,
+    extras: ``,
+    label: "UNK",
+  },
+};
+
 // Create SVG aircraft icon based on type and threat level
 function createAircraftDivIcon(ac: Aircraft, isSelected: boolean): L.DivIcon {
   const color = getThreatLevelColor(ac.threatLevel);
-  const size = isSelected ? 32 : 24;
+  const config = AIRCRAFT_CONFIG[ac.type] || AIRCRAFT_CONFIG.Unknown;
+  const baseSize = config.size;
+  const size = isSelected ? baseSize + 10 : baseSize;
   const rotation = ac.heading - 90;
 
-  let iconPath: string;
-  switch (ac.type) {
-    case "Military":
-      iconPath = "M12 2 L8 8 L4 8 L4 10 L8 10 L10 14 L6 18 L8 18 L12 14 L16 18 L18 18 L14 14 L16 10 L20 10 L20 8 L16 8 Z";
-      break;
-    case "Commercial":
-      iconPath = "M12 2 L10 6 L4 8 L4 10 L10 9 L11 14 L6 18 L8 18 L12 15 L16 18 L18 18 L13 14 L14 9 L20 10 L20 8 L14 6 Z";
-      break;
-    case "Drone":
-      iconPath = "M12 6 L6 12 L12 18 L18 12 Z M8 8 L4 4 M16 8 L20 4 M8 16 L4 20 M16 16 L20 20";
-      break;
-    default:
-      iconPath = "M12 4 L8 8 L2 8 L2 10 L8 10 L8 14 L4 18 L6 18 L12 12 L18 18 L20 18 L16 14 L16 10 L22 10 L22 8 L16 8 Z";
-  }
+  // Altitude-based shadow: higher altitude = larger offset & softer shadow
+  const altNorm = Math.min(ac.position.altitude / 13000, 1);
+  const shadowOffset = 2 + altNorm * 4;
+  const shadowBlur = 3 + altNorm * 5;
 
+  // Threat-level glow for hostile/suspect
+  const glowFilter = ac.threatLevel === "HOSTILE"
+    ? `drop-shadow(0 0 6px ${color}) drop-shadow(0 0 12px ${color})`
+    : ac.threatLevel === "SUSPECT"
+    ? `drop-shadow(0 0 4px ${color})`
+    : "";
+
+  const hostile = ac.threatLevel === "HOSTILE" ? "animation:hostile-pulse 1s ease-in-out infinite;" : "";
+
+  // Drone: propeller disc animation at wingtips (MQ-9 Reaper has rear pusher prop)
+  const droneExtras = ac.type === "Drone"
+    ? `<circle cx="32" cy="54" r="5" fill="none" stroke="${color}" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.6">
+         <animateTransform attributeName="transform" type="rotate" from="0 32 54" to="360 32 54" dur="0.3s" repeatCount="indefinite"/>
+       </circle>`
+    : "";
+
+  // Selection ring (centered on 64×64 viewBox)
   const selectionRing = isSelected
-    ? `<circle cx="12" cy="12" r="14" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="4,4">
-        <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="2s" repeatCount="indefinite"/>
+    ? `<circle cx="32" cy="32" r="35" fill="none" stroke="${color}" stroke-width="1.5" stroke-dasharray="5,3" opacity="0.9">
+        <animateTransform attributeName="transform" type="rotate" from="0 32 32" to="360 32 32" dur="3s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="32" cy="32" r="38" fill="none" stroke="${color}" stroke-width="0.5" opacity="0.4">
+        <animate attributeName="r" values="38;42;38" dur="1.5s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.4;0.1;0.4" dur="1.5s" repeatCount="indefinite"/>
       </circle>`
     : "";
 
-  const hostile = ac.threatLevel === "HOSTILE" ? "animation:blink .5s infinite;" : "";
+  // Altitude label text (shows FL or meters)
+  const altLabel = ac.position.altitude >= 1000
+    ? `FL${Math.round(ac.position.altitude / 30.48 / 100)}`
+    : `${ac.position.altitude}m`;
 
-  const html = `<svg width="${size}" height="${size}" viewBox="0 0 24 24"
-    style="transform:rotate(${rotation}deg);filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));${hostile}">
-    <path d="${iconPath}" fill="${color}" stroke="#fff" stroke-width="1"/>
-    ${selectionRing}
-  </svg>`;
+  // Speed in knots for display
+  const speedKts = Math.round(ac.speed * 0.539957);
+
+  // Outer container is larger to fit label + icon
+  const outerW = size + 60;
+  const outerH = size + 20;
+
+  const html = `<div style="position:relative;width:${outerW}px;height:${outerH}px;pointer-events:none;">
+    <svg width="${size}" height="${size}" viewBox="${config.viewBox}"
+      style="position:absolute;left:${(outerW - size) / 2}px;top:0;
+        transform:rotate(${rotation}deg);
+        filter:drop-shadow(${shadowOffset}px ${shadowOffset}px ${shadowBlur}px rgba(0,0,0,.5)) ${glowFilter};
+        ${hostile}pointer-events:auto;">
+      <path d="${config.fuselage}" fill="${color}" stroke="rgba(255,255,255,0.7)" stroke-width="0.6" stroke-linejoin="round"/>
+      <path d="${config.wings}" fill="${color}" stroke="rgba(255,255,255,0.5)" stroke-width="0.4" stroke-linejoin="round"/>
+      <path d="${config.tail}" fill="${color}" stroke="rgba(255,255,255,0.5)" stroke-width="0.4" stroke-linejoin="round" opacity="0.9"/>
+      ${config.extras ? `<path d="${config.extras}" fill="rgba(255,255,255,0.3)" stroke="none"/>` : ""}
+      ${droneExtras}
+      ${selectionRing}
+    </svg>
+    <div style="position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);
+      white-space:nowrap;text-align:center;pointer-events:none;
+      font-family:'Courier New',monospace;line-height:1.1;">
+      <div style="font-size:9px;font-weight:bold;color:${color};text-shadow:0 0 4px rgba(0,0,0,.9),0 0 2px rgba(0,0,0,.9);">
+        ${ac.callsign}
+      </div>
+      <div style="font-size:8px;color:rgba(255,255,255,0.6);text-shadow:0 0 3px rgba(0,0,0,.9);">
+        ${altLabel} ${speedKts}kt
+      </div>
+    </div>
+  </div>`;
 
   return L.divIcon({
     className: "aircraft-icon",
     html,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
+    iconSize: [outerW, outerH],
+    iconAnchor: [outerW / 2, size / 2],
   });
 }
 
@@ -99,7 +243,12 @@ if (typeof document !== "undefined" && !document.getElementById(styleId)) {
   style.textContent = `
     @keyframes pulse-ring { 0%{transform:scale(.8);opacity:1} 100%{transform:scale(1.5);opacity:0} }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    @keyframes hostile-pulse {
+      0%,100%{opacity:1;filter:drop-shadow(0 0 6px #ef4444) drop-shadow(0 0 12px #ef4444)}
+      50%{opacity:.7;filter:drop-shadow(0 0 10px #ef4444) drop-shadow(0 0 20px #ff0000)}
+    }
     .aircraft-icon,.missile-icon,.radar-center-icon { background:none!important; border:none!important; }
+    .aircraft-icon { transition: none; }
     .leaflet-popup-content-wrapper { background:rgba(20,20,30,.95);color:#fff;border:1px solid #00ff88;border-radius:8px; }
     .leaflet-popup-tip { background:rgba(20,20,30,.95);border:1px solid #00ff88; }
     .leaflet-popup-content { margin:12px; }
@@ -113,13 +262,27 @@ const AircraftMarker: React.FC<{
   isSelected: boolean;
   onSelect: (id: string) => void;
 }> = React.memo(({ ac, isSelected, onSelect }) => {
-  const icon = useMemo(() => createAircraftDivIcon(ac, isSelected), [ac.heading, ac.threatLevel, ac.type, isSelected]);
+  const icon = useMemo(
+    () => createAircraftDivIcon(ac, isSelected),
+    [ac.heading, ac.threatLevel, ac.type, ac.position.altitude, ac.speed, ac.callsign, isSelected]
+  );
   const color = getThreatLevelColor(ac.threatLevel);
   const position: [number, number] = [ac.position.lat, ac.position.lng];
 
+  // Speed-based heading trail (faster aircraft = longer trail)
+  const headingRad = (ac.heading * Math.PI) / 180;
+  const trailLength = Math.min(ac.speed / 600, 1.2); // longer for faster aircraft
+  const trailEnd: [number, number] = [
+    ac.position.lat - trailLength * Math.cos(headingRad),
+    ac.position.lng - trailLength * Math.sin(headingRad) * 1.5,
+  ];
+  const trailMid: [number, number] = [
+    ac.position.lat - trailLength * 0.5 * Math.cos(headingRad),
+    ac.position.lng - trailLength * 0.5 * Math.sin(headingRad) * 1.5,
+  ];
+
   // Flight path prediction line
   const predictionDistance = ac.speed / 1000;
-  const headingRad = (ac.heading * Math.PI) / 180;
   const predEnd: [number, number] = [
     ac.position.lat + predictionDistance * Math.cos(headingRad),
     ac.position.lng + predictionDistance * Math.sin(headingRad) * 1.5,
@@ -190,6 +353,15 @@ const AircraftMarker: React.FC<{
           </div>
         </Popup>
       </Marker>
+      {/* Speed-based heading trail (fading contrail behind aircraft) */}
+      <Polyline
+        positions={[position, trailMid]}
+        pathOptions={{ color, weight: 2.5, opacity: 0.4 }}
+      />
+      <Polyline
+        positions={[trailMid, trailEnd]}
+        pathOptions={{ color, weight: 1.5, opacity: 0.15 }}
+      />
       {/* AI Predicted path */}
       {ac.aiClassification?.predictedPath && ac.aiClassification.predictedPath.length > 0 ? (
         <>
@@ -509,7 +681,7 @@ const Map2D: React.FC = () => {
         {/* Legend */}
         <Card className="absolute top-4 left-4 z-[1000] bg-gray-900/90 border-gray-700">
           <CardContent className="p-3">
-            <div className="text-xs text-gray-400 mb-2 font-medium">AI THREAT CLASSIFICATION</div>
+            <div className="text-xs text-gray-400 mb-2 font-medium">THREAT CLASSIFICATION</div>
             <div className="space-y-1 text-xs">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-green-500" />
@@ -527,6 +699,20 @@ const Map2D: React.FC = () => {
                 <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
                 <span className="text-gray-300">Hostile</span>
               </div>
+            </div>
+            <div className="text-xs text-gray-400 mt-3 mb-2 font-medium">AIRCRAFT TYPES</div>
+            <div className="space-y-1.5 text-xs">
+              {Object.entries(AIRCRAFT_CONFIG).filter(([k]) => k !== "Unknown").map(([type, cfg]) => (
+                <div key={type} className="flex items-center gap-2">
+                  <svg width="16" height="16" viewBox={cfg.viewBox} className="shrink-0">
+                    <path d={cfg.fuselage} fill="#94a3b8" stroke="rgba(255,255,255,0.5)" strokeWidth="0.5" strokeLinejoin="round"/>
+                    <path d={cfg.wings} fill="#94a3b8" stroke="rgba(255,255,255,0.4)" strokeWidth="0.3" strokeLinejoin="round"/>
+                    <path d={cfg.tail} fill="#94a3b8" stroke="rgba(255,255,255,0.4)" strokeWidth="0.3" strokeLinejoin="round" opacity={0.9}/>
+                  </svg>
+                  <span className="text-gray-300">{type}</span>
+                  <span className="text-gray-500 ml-auto font-mono">{cfg.label}</span>
+                </div>
+              ))}
             </div>
             <div className="text-xs text-gray-400 mt-3 mb-2 font-medium">RANGE RINGS</div>
             <div className="space-y-1 text-xs">
