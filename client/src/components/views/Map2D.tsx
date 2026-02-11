@@ -3,15 +3,14 @@ import { MapContainer, TileLayer, Circle, Polyline, Marker, Popup, useMap, Layer
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useSimulation } from "../../lib/stores/useSimulation";
+import { useSettings } from "../../lib/stores/useSettings";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { getThreatLevelColor, getThreatLevelLabel } from "../../lib/simulation";
 import type { Aircraft, Missile, Explosion } from "../../lib/simulation";
 import { Play, Square, Radar, Plane, Zap, Brain } from "lucide-react";
-
-// Radar center coordinates
-const RADAR_CENTER: [number, number] = [50.0, 10.0];
+import { getCountryConfig } from "@shared/countryConfigs";
 
 // Radar range ring definitions
 const RADAR_RANGES = [
@@ -312,6 +311,9 @@ function MapResizeHandler() {
 
 const Map2D: React.FC = () => {
   const { aircraft, missiles, isRunning, startSimulation, stopSimulation, systemStatus, engagementQueue, explosions } = useSimulation();
+  const { country, dataSource } = useSettings();
+  const countryConfig = useMemo(() => getCountryConfig(country), [country]);
+  const RADAR_CENTER: [number, number] = useMemo(() => [countryConfig.radarCenter.lat, countryConfig.radarCenter.lng], [countryConfig]);
   const [selectedAircraft, setSelectedAircraft] = React.useState<string | null>(null);
 
   const handleSelect = useCallback((id: string) => setSelectedAircraft(id), []);
@@ -339,6 +341,13 @@ const Map2D: React.FC = () => {
               {isRunning ? <Square className="h-4 w-4 mr-1" /> : <Play className="h-4 w-4 mr-1" />}
               {isRunning ? "Stop" : "Start"}
             </Button>
+            <Badge variant="outline" className={
+              dataSource === 'live' ? "bg-blue-900/50 text-blue-400 border-blue-700" :
+              dataSource === 'hybrid' ? "bg-purple-900/50 text-purple-400 border-purple-700" :
+              "bg-gray-900/50 text-gray-400 border-gray-700"
+            }>
+              {dataSource === 'live' ? 'LIVE' : dataSource === 'hybrid' ? 'HYBRID' : 'SIM'}
+            </Badge>
             <Badge variant="outline" className="bg-green-900/50 text-green-400 border-green-700">
               <Plane className="h-3 w-3 mr-1" />
               {aircraft.length} Tracked
@@ -405,6 +414,19 @@ const Map2D: React.FC = () => {
                 opacity: 0.5,
                 dashArray: range.dash,
               }}
+            />
+          ))}
+
+          {/* Air base markers */}
+          {countryConfig.airBases.map((base) => (
+            <Marker
+              key={base.name}
+              position={[base.lat, base.lng]}
+              icon={L.divIcon({
+                className: 'air-base-icon',
+                html: `<div style="background:rgba(0,255,136,0.15);border:1px solid #00ff88;border-radius:4px;padding:2px 6px;font-size:10px;color:#00ff88;white-space:nowrap;font-family:monospace;">${base.name}</div>`,
+                iconAnchor: [40, 10],
+              })}
             />
           ))}
 

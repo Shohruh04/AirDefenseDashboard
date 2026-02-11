@@ -7,6 +7,7 @@ import {
   detectAnomaly,
   buildPriorityQueue,
   pickRandomSAM,
+  getRadarBase,
   type Aircraft,
   type Alert,
   type Missile,
@@ -16,6 +17,9 @@ import {
 } from '../simulation';
 import { usePlayback } from './usePlayback';
 import { useAudio } from './useAudio';
+import { useSettings } from './useSettings';
+import { useLiveAircraft } from './useLiveAircraft';
+import { getCountryConfig } from '@shared/countryConfigs';
 
 export interface AiMetrics {
   classificationsPerSecond: number;
@@ -119,9 +123,26 @@ export const useSimulation = create<SimulationState>()(
 
       set({ isRunning: true });
 
-      // Generate initial aircraft — start with a packed airspace
-      const initialAircraft = Array(15).fill(0).map(() => generateRandomAircraft());
-      set({ aircraft: initialAircraft });
+      const { dataSource } = useSettings.getState();
+
+      // Start live polling for live/hybrid modes
+      if (dataSource === 'live' || dataSource === 'hybrid') {
+        useLiveAircraft.getState().startPolling();
+      }
+
+      // Generate initial aircraft based on data source mode
+      if (dataSource === 'simulation') {
+        // Full simulation: generate 15 synthetic aircraft
+        const initialAircraft = Array(15).fill(0).map(() => generateRandomAircraft());
+        set({ aircraft: initialAircraft });
+      } else if (dataSource === 'live') {
+        // Live mode: start with empty, will be filled by live polling
+        set({ aircraft: [] });
+      } else {
+        // Hybrid mode: start with a few simulated threats, live aircraft will merge in
+        const initialThreats = Array(3).fill(0).map(() => generateRandomAircraft());
+        set({ aircraft: initialThreats });
+      }
 
       // Update aircraft positions every 2 seconds + AI reclassification
       simulationInterval = setInterval(() => {
@@ -144,15 +165,21 @@ export const useSimulation = create<SimulationState>()(
           return;
         }
 
+        const countryConfig = getCountryConfig(useSettings.getState().country);
+        const { mapBounds } = countryConfig;
+
         const updatedAircraft = currentState.aircraft.map(aircraft => {
+          // Skip position updates for live aircraft (they get positions from API)
+          if (aircraft.id.startsWith('LIVE_')) return aircraft;
+
           const speed = aircraft.speed / 3600;
           const deltaTime = 2;
 
           const newLat = aircraft.position.lat + (speed * deltaTime * Math.cos(aircraft.heading * Math.PI / 180)) / 111;
           const newLng = aircraft.position.lng + (speed * deltaTime * Math.sin(aircraft.heading * Math.PI / 180)) / (111 * Math.cos(aircraft.position.lat * Math.PI / 180));
 
-          const boundedLat = Math.max(35, Math.min(70, newLat));
-          const boundedLng = Math.max(-10, Math.min(40, newLng));
+          const boundedLat = Math.max(mapBounds.latMin, Math.min(mapBounds.latMax, newLat));
+          const boundedLng = Math.max(mapBounds.lngMin, Math.min(mapBounds.lngMax, newLng));
 
           return {
             ...aircraft,
@@ -199,16 +226,31 @@ export const useSimulation = create<SimulationState>()(
         // Build engagement priority queue
         const queue = buildPriorityQueue(reclassifiedAircraft);
 
-        // Aggressively spawn new aircraft to keep things busy
+        // Merge with live aircraft in hybrid/live modes
+        const currentDataSource = useSettings.getState().dataSource;
         let finalAircraft: Aircraft[] = reclassifiedAircraft;
-        if (Math.random() < 0.35 && finalAircraft.length < 20) {
-          finalAircraft = [...finalAircraft, generateRandomAircraft()];
+
+        if (currentDataSource === 'live' || currentDataSource === 'hybrid') {
+          const liveData = useLiveAircraft.getState().liveAircraft;
+          // Remove stale live aircraft, add fresh ones
+          const simulatedOnly = finalAircraft.filter(ac => !ac.id.startsWith('LIVE_'));
+          finalAircraft = [...simulatedOnly, ...liveData];
         }
-        if (Math.random() < 0.15 && finalAircraft.length < 20) {
-          finalAircraft = [...finalAircraft, generateRandomAircraft()];
-        }
-        if (Math.random() < 0.08 && finalAircraft.length > 6) {
-          finalAircraft = finalAircraft.slice(1);
+
+        if (currentDataSource === 'simulation' || currentDataSource === 'hybrid') {
+          // Spawn new simulated aircraft to keep things busy
+          const simCount = finalAircraft.filter(ac => !ac.id.startsWith('LIVE_')).length;
+          if (Math.random() < 0.35 && simCount < 20) {
+            finalAircraft = [...finalAircraft, generateRandomAircraft()];
+          }
+          if (Math.random() < 0.15 && simCount < 20) {
+            finalAircraft = [...finalAircraft, generateRandomAircraft()];
+          }
+          if (Math.random() < 0.08 && simCount > 6) {
+            // Only remove a simulated aircraft, not a live one
+            const simIdx = finalAircraft.findIndex(ac => !ac.id.startsWith('LIVE_'));
+            if (simIdx >= 0) finalAircraft.splice(simIdx, 1);
+          }
         }
 
         // Update AI metrics
@@ -296,6 +338,9 @@ export const useSimulation = create<SimulationState>()(
       if (missileInterval) { clearInterval(missileInterval); missileInterval = null; }
       if (missileLaunchInterval) { clearInterval(missileLaunchInterval); missileLaunchInterval = null; }
 
+      // Stop live aircraft polling
+      useLiveAircraft.getState().stopPolling();
+
       // Clear AI tracking maps
       previousHeadings.clear();
       previousPredictions.clear();
@@ -352,7 +397,8 @@ export const useSimulation = create<SimulationState>()(
       if (!target) return;
       if (state.systemStatus.missileReady <= 0) return;
 
-      const radarPosition = { lat: 50.0, lng: 10.0, altitude: 0 };
+      const base = getRadarBase();
+      const radarPosition = { ...base, altitude: 0 };
       const sam = pickRandomSAM();
 
       const missile: Missile = {

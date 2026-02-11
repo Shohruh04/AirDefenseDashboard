@@ -1,3 +1,6 @@
+import { getCountryConfig, getModelPools, getMissileSystems, type AircraftModelDef } from '@shared/countryConfigs';
+import { useSettings } from './stores/useSettings';
+
 // ─── AI Classification Types ───────────────────────────────────────────────
 
 export interface RiskFactor {
@@ -101,6 +104,12 @@ export interface Explosion {
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
+export function getRadarBase(): { lat: number; lng: number } {
+  const country = useSettings.getState().country;
+  return getCountryConfig(country).radarCenter;
+}
+
+// Backward-compatible constant (reads dynamically)
 export const RADAR_BASE = { lat: 50.0, lng: 10.0 };
 
 const AIRCRAFT_TYPE_WEIGHTS: { type: Aircraft["type"]; weight: number }[] = [
@@ -135,90 +144,23 @@ const NORMAL_SPEED_RANGE: Record<Aircraft["type"], { min: number; max: number }>
   Unknown: { min: 200, max: 700 },
 };
 
-// ─── Real-World Aircraft Models ───────────────────────────────────────────
+// ─── Real-World Aircraft Models (from country config) ─────────────────────
 
-interface AircraftModelDef {
-  model: string;
-  callsignPrefix: string;
+function getCurrentModelPools(): Record<Aircraft["type"], AircraftModelDef[]> {
+  const config = getCountryConfig(useSettings.getState().country);
+  return getModelPools(config) as Record<Aircraft["type"], AircraftModelDef[]>;
 }
 
-const COMMERCIAL_MODELS: AircraftModelDef[] = [
-  { model: "Boeing 737-800", callsignPrefix: "DLH" },
-  { model: "Boeing 777-300ER", callsignPrefix: "BAW" },
-  { model: "Airbus A320neo", callsignPrefix: "AFR" },
-  { model: "Airbus A330-300", callsignPrefix: "KLM" },
-  { model: "Boeing 747-8", callsignPrefix: "SWR" },
-  { model: "Airbus A380-800", callsignPrefix: "UAE" },
-  { model: "Boeing 787-9 Dreamliner", callsignPrefix: "SAS" },
-  { model: "Airbus A350-900", callsignPrefix: "THY" },
-  { model: "Embraer E195-E2", callsignPrefix: "AUA" },
-  { model: "Boeing 767-300ER", callsignPrefix: "DAL" },
-];
+// Real-world defense systems (from country config)
+export function getSAMSystems(): { designation: string; speed: number }[] {
+  const config = getCountryConfig(useSettings.getState().country);
+  return getMissileSystems(config);
+}
 
-const MILITARY_MODELS: AircraftModelDef[] = [
-  { model: "F-16C Fighting Falcon", callsignPrefix: "VIPER" },
-  { model: "F-35A Lightning II", callsignPrefix: "LIGHT" },
-  { model: "Su-35S Flanker-E", callsignPrefix: "FLANKER" },
-  { model: "MiG-29 Fulcrum", callsignPrefix: "FULCRUM" },
-  { model: "Eurofighter Typhoon", callsignPrefix: "TYPHOON" },
-  { model: "F-22 Raptor", callsignPrefix: "RAPTOR" },
-  { model: "Rafale C", callsignPrefix: "RAFALE" },
-  { model: "Su-57 Felon", callsignPrefix: "FELON" },
-  { model: "F-15E Strike Eagle", callsignPrefix: "EAGLE" },
-  { model: "Tornado GR4", callsignPrefix: "TORNADO" },
-  { model: "Su-34 Fullback", callsignPrefix: "FULLBACK" },
-  { model: "JAS 39 Gripen", callsignPrefix: "GRIPEN" },
-];
-
-const PRIVATE_MODELS: AircraftModelDef[] = [
-  { model: "Cessna Citation X", callsignPrefix: "N" },
-  { model: "Gulfstream G650", callsignPrefix: "N" },
-  { model: "Bombardier Global 7500", callsignPrefix: "C-G" },
-  { model: "Beechcraft King Air 350", callsignPrefix: "D-I" },
-  { model: "Learjet 75 Liberty", callsignPrefix: "N" },
-  { model: "Dassault Falcon 8X", callsignPrefix: "F-H" },
-  { model: "Pilatus PC-12", callsignPrefix: "HB-" },
-  { model: "Cessna 172 Skyhawk", callsignPrefix: "N" },
-];
-
-const DRONE_MODELS: AircraftModelDef[] = [
-  { model: "MQ-9 Reaper", callsignPrefix: "REAPER" },
-  { model: "RQ-4 Global Hawk", callsignPrefix: "HAWK" },
-  { model: "TB2 Bayraktar", callsignPrefix: "BAYRAKTAR" },
-  { model: "MQ-1C Gray Eagle", callsignPrefix: "GEAGLE" },
-  { model: "Shahed-136", callsignPrefix: "SHAHED" },
-  { model: "Orlan-10", callsignPrefix: "ORLAN" },
-  { model: "IAI Heron TP", callsignPrefix: "HERON" },
-  { model: "HESA Mohajer-6", callsignPrefix: "MOHAJER" },
-  { model: "Wing Loong II", callsignPrefix: "WLOONG" },
-  { model: "RQ-170 Sentinel", callsignPrefix: "SENTINEL" },
-];
-
-const UNKNOWN_MODELS: AircraftModelDef[] = [
-  { model: "Unidentified Fixed-Wing", callsignPrefix: "UNK" },
-  { model: "Unidentified Rotorcraft", callsignPrefix: "UNK" },
-  { model: "Unidentified Low-RCS", callsignPrefix: "UNK" },
-  { model: "Unidentified High-Speed", callsignPrefix: "UNK" },
-];
-
-const MODEL_POOLS: Record<Aircraft["type"], AircraftModelDef[]> = {
-  Commercial: COMMERCIAL_MODELS,
-  Military: MILITARY_MODELS,
-  Private: PRIVATE_MODELS,
-  Drone: DRONE_MODELS,
-  Unknown: UNKNOWN_MODELS,
-};
-
-// Real-world surface-to-air missile systems
+// Backward-compatible export
 export const SAM_SYSTEMS = [
-  { designation: "MIM-104 Patriot PAC-3", speed: 5000 },
-  { designation: "S-400 Triumf (40N6E)", speed: 4800 },
   { designation: "IRIS-T SLM", speed: 3600 },
-  { designation: "NASAMS AIM-120", speed: 4000 },
-  { designation: "Aster 30 SAMP/T", speed: 4200 },
-  { designation: "Buk-M3 (9M317MA)", speed: 3400 },
-  { designation: "SAMP/T Mamba", speed: 4100 },
-  { designation: "David's Sling (Stunner)", speed: 4600 },
+  { designation: "MIM-104 Patriot PAC-3", speed: 5000 },
 ];
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -251,7 +193,8 @@ function angleDifference(a: number, b: number): number {
 // ─── Aircraft Generation ───────────────────────────────────────────────────
 
 function pickRandomModel(type: Aircraft["type"]): AircraftModelDef {
-  const pool = MODEL_POOLS[type];
+  const pools = getCurrentModelPools();
+  const pool = pools[type];
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
@@ -295,8 +238,10 @@ export function generateRandomAircraft(): Aircraft {
   const modelDef = pickRandomModel(type);
   const callsign = generateCallsign(type, modelDef);
 
-  const lat = 44 + Math.random() * 12;
-  const lng = 4 + Math.random() * 12;
+  const config = getCountryConfig(useSettings.getState().country);
+  const { spawnBounds } = config;
+  const lat = spawnBounds.latMin + Math.random() * (spawnBounds.latMax - spawnBounds.latMin);
+  const lng = spawnBounds.lngMin + Math.random() * (spawnBounds.lngMax - spawnBounds.lngMin);
 
   const isDrone = type === "Drone";
   const iffResponding = Math.random() < IFF_RESPONSE_PROBABILITY[type];
@@ -341,7 +286,8 @@ export function generateRandomAircraft(): Aircraft {
 }
 
 export function pickRandomSAM(): { designation: string; speed: number } {
-  return SAM_SYSTEMS[Math.floor(Math.random() * SAM_SYSTEMS.length)];
+  const systems = getSAMSystems();
+  return systems[Math.floor(Math.random() * systems.length)];
 }
 
 // ─── AI Threat Classification Engine ───────────────────────────────────────
@@ -380,7 +326,8 @@ export function classifyAircraftThreat(
   });
 
   // 3. Proximity to Base
-  const distanceToBase = calculateDistance(aircraft.position, RADAR_BASE);
+  const radarBase = getRadarBase();
+  const distanceToBase = calculateDistance(aircraft.position, radarBase);
   const proximityScore = Math.min(100, Math.max(0, 100 - (distanceToBase / 3)));
   factors.push({
     name: "Proximity",
@@ -391,7 +338,7 @@ export function classifyAircraftThreat(
   });
 
   // 4. Heading Toward Base
-  const bearingToBase = bearingBetween(aircraft.position, RADAR_BASE);
+  const bearingToBase = bearingBetween(aircraft.position, radarBase);
   const headingAngleDiff = angleDifference(aircraft.heading, bearingToBase);
   let headingScore: number;
   if (headingAngleDiff < 30) headingScore = 100;
@@ -617,14 +564,15 @@ export function generateSmartAlert(aircraft: Aircraft[]): Alert {
   }
 
   // Proximity alerts
+  const alertRadarBase = getRadarBase();
   const nearBase = aircraft.filter(ac => {
-    const dist = calculateDistance(ac.position, RADAR_BASE);
+    const dist = calculateDistance(ac.position, alertRadarBase);
     return dist < 150 && ac.threatLevel !== "FRIENDLY";
   });
   if (nearBase.length > 0) {
     generators.push(() => {
       const ac = nearBase[Math.floor(Math.random() * nearBase.length)];
-      const dist = calculateDistance(ac.position, RADAR_BASE);
+      const dist = calculateDistance(ac.position, alertRadarBase);
       return {
         id, timestamp: Date.now(), type: "DETECTION", priority: dist < 80 ? "HIGH" : "MEDIUM",
         message: `AI tracking: ${ac.callsign} (${ac.model}) at ${dist.toFixed(0)}km — ${ac.threatLevel}`,
@@ -690,6 +638,7 @@ export function generateSmartAlert(aircraft: Aircraft[]): Alert {
 // ─── Engagement Priority Queue ─────────────────────────────────────────────
 
 export function calculateEngagementPriority(aircraft: Aircraft): number {
+  const engRadarBase = getRadarBase();
   // Threat level weight (0.30)
   const threatMap: Record<Aircraft["threatLevel"], number> = {
     HOSTILE: 100, SUSPECT: 60, NEUTRAL: 20, FRIENDLY: 0,
@@ -697,11 +646,11 @@ export function calculateEngagementPriority(aircraft: Aircraft): number {
   const threatScore = threatMap[aircraft.threatLevel] * 0.30;
 
   // Distance to base (0.25) — closer = higher priority
-  const dist = calculateDistance(aircraft.position, RADAR_BASE);
+  const dist = calculateDistance(aircraft.position, engRadarBase);
   const distScore = Math.min(100, Math.max(0, 100 - dist / 3)) * 0.25;
 
   // Closing speed (0.20) — velocity component toward base
-  const bearingToBase = bearingBetween(aircraft.position, RADAR_BASE);
+  const bearingToBase = bearingBetween(aircraft.position, engRadarBase);
   const angleDiff = angleDifference(aircraft.heading, bearingToBase);
   const closingComponent = Math.cos((angleDiff * Math.PI) / 180);
   const closingSpeed = Math.max(0, aircraft.speed * closingComponent);
@@ -718,12 +667,13 @@ export function calculateEngagementPriority(aircraft: Aircraft): number {
 }
 
 export function buildPriorityQueue(aircraft: Aircraft[]): PriorityTarget[] {
+  const queueRadarBase = getRadarBase();
   return aircraft
     .filter(ac => ac.threatLevel === "HOSTILE" || ac.threatLevel === "SUSPECT")
     .map(ac => {
       const engagementScore = calculateEngagementPriority(ac);
-      const dist = calculateDistance(ac.position, RADAR_BASE);
-      const bearingToBase = bearingBetween(ac.position, RADAR_BASE);
+      const dist = calculateDistance(ac.position, queueRadarBase);
+      const bearingToBase = bearingBetween(ac.position, queueRadarBase);
       const angleDiff = angleDifference(ac.heading, bearingToBase);
       const closingSpeed = Math.max(0, ac.speed * Math.cos((angleDiff * Math.PI) / 180));
       const eta = closingSpeed > 0 ? (dist / closingSpeed) * 3600 : 99999;
@@ -817,9 +767,11 @@ export function generateRandomAlert(): Alert {
   };
 
   if (alertCategory.type === "DETECTION" || alertCategory.type === "THREAT") {
+    const alertConfig = getCountryConfig(useSettings.getState().country);
+    const { mapBounds } = alertConfig;
     alert.position = {
-      lat: Math.random() * 35 + 35,
-      lng: Math.random() * 50 - 10,
+      lat: mapBounds.latMin + Math.random() * (mapBounds.latMax - mapBounds.latMin),
+      lng: mapBounds.lngMin + Math.random() * (mapBounds.lngMax - mapBounds.lngMin),
     };
   }
 
@@ -829,8 +781,9 @@ export function generateRandomAlert(): Alert {
 // ─── Utility Functions ─────────────────────────────────────────────────────
 
 export function toWorldCoords(lat: number, lng: number, altitude: number): [number, number, number] {
-  const x = (lng - 10) * 2;
-  const z = -(lat - 50) * 2;
+  const base = getRadarBase();
+  const x = (lng - base.lng) * 2;
+  const z = -(lat - base.lat) * 2;
   const y = (altitude / 1000) * 0.15 + 0.5;
   return [x, y, z];
 }

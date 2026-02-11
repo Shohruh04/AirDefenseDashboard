@@ -1,4 +1,5 @@
 import { users, type User, type InsertUser } from "@shared/schema";
+import { getCountryConfig, getModelPools, DEFAULT_COUNTRY } from "@shared/countryConfigs";
 
 // Simulation data types (matching client-side types)
 export interface SimulationAircraft {
@@ -136,37 +137,15 @@ export class MemStorage implements IStorage {
     this.systemStatus.aircraftTracked = this.aircraft.size;
   }
 
-  private static readonly MODEL_POOLS: Record<SimulationAircraft["type"], { model: string; prefix: string }[]> = {
-    Commercial: [
-      { model: "Boeing 737-800", prefix: "DLH" },
-      { model: "Boeing 777-300ER", prefix: "BAW" },
-      { model: "Airbus A320neo", prefix: "AFR" },
-      { model: "Airbus A330-300", prefix: "KLM" },
-      { model: "Boeing 787-9 Dreamliner", prefix: "SAS" },
-    ],
-    Military: [
-      { model: "F-16C Fighting Falcon", prefix: "VIPER" },
-      { model: "F-35A Lightning II", prefix: "LIGHT" },
-      { model: "Eurofighter Typhoon", prefix: "TYPHOON" },
-      { model: "F-22 Raptor", prefix: "RAPTOR" },
-      { model: "F-15E Strike Eagle", prefix: "EAGLE" },
-    ],
-    Private: [
-      { model: "Cessna Citation X", prefix: "N" },
-      { model: "Gulfstream G650", prefix: "N" },
-      { model: "Bombardier Global 7500", prefix: "C-G" },
-    ],
-    Drone: [
-      { model: "MQ-9 Reaper", prefix: "REAPER" },
-      { model: "TB2 Bayraktar", prefix: "BAYRAKTAR" },
-      { model: "Shahed-136", prefix: "SHAHED" },
-      { model: "RQ-4 Global Hawk", prefix: "HAWK" },
-    ],
-    Unknown: [
-      { model: "Unidentified Fixed-Wing", prefix: "UNK" },
-      { model: "Unidentified Low-RCS", prefix: "UNK" },
-    ],
-  };
+  private static getModelPools(): Record<SimulationAircraft["type"], { model: string; prefix: string }[]> {
+    const config = getCountryConfig(DEFAULT_COUNTRY);
+    const pools = getModelPools(config);
+    const result: Record<string, { model: string; prefix: string }[]> = {};
+    for (const [type, models] of Object.entries(pools)) {
+      result[type] = models.map(m => ({ model: m.model, prefix: m.callsignPrefix }));
+    }
+    return result as Record<SimulationAircraft["type"], { model: string; prefix: string }[]>;
+  }
 
   private generateInitialAircraft(count: number): SimulationAircraft[] {
     const types: SimulationAircraft["type"][] = ["Commercial", "Military", "Private", "Drone", "Unknown"];
@@ -174,7 +153,8 @@ export class MemStorage implements IStorage {
 
     for (let i = 0; i < count; i++) {
       const type = types[Math.floor(Math.random() * types.length)];
-      const pool = MemStorage.MODEL_POOLS[type];
+      const pools = MemStorage.getModelPools();
+      const pool = pools[type];
       const modelDef = pool[Math.floor(Math.random() * pool.length)];
 
       let callsign: string;
@@ -216,11 +196,14 @@ export class MemStorage implements IStorage {
         ? Math.floor(Math.random() * 150) + 50
         : Math.floor(Math.random() * 600) + 200;
 
+      const storageConfig = getCountryConfig(DEFAULT_COUNTRY);
+      const { spawnBounds } = storageConfig;
+
       aircraft.push({
         id: `AC${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
         position: {
-          lat: Math.random() * 35 + 35,
-          lng: Math.random() * 50 - 10,
+          lat: spawnBounds.latMin + Math.random() * (spawnBounds.latMax - spawnBounds.latMin),
+          lng: spawnBounds.lngMin + Math.random() * (spawnBounds.lngMax - spawnBounds.lngMin),
           altitude,
         },
         speed,

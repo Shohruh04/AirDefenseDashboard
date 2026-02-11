@@ -9,6 +9,9 @@ interface SettingsState {
   aiEnabled: boolean;
   anomalySensitivity: number; // 1-10
   predictionHorizon: number; // 10-120 seconds
+  country: string; // country config id (e.g. "germany", "uzbekistan")
+  dataSource: 'simulation' | 'live' | 'hybrid';
+  liveApiProvider: 'airplanes-live' | 'opensky';
 
   // Actions
   toggleSimulation: () => void;
@@ -18,6 +21,9 @@ interface SettingsState {
   setAiEnabled: (enabled: boolean) => void;
   setAnomalySensitivity: (sensitivity: number) => void;
   setPredictionHorizon: (horizon: number) => void;
+  setCountry: (country: string) => void;
+  setDataSource: (source: 'simulation' | 'live' | 'hybrid') => void;
+  setLiveApiProvider: (provider: 'airplanes-live' | 'opensky') => void;
 }
 
 export const useSettings = create<SettingsState>()(
@@ -30,6 +36,9 @@ export const useSettings = create<SettingsState>()(
       aiEnabled: true,
       anomalySensitivity: 5,
       predictionHorizon: 50,
+      country: 'germany',
+      dataSource: 'hybrid',
+      liveApiProvider: 'airplanes-live',
 
       toggleSimulation: () => set((state) => ({
         isSimulationRunning: !state.isSimulationRunning
@@ -48,6 +57,12 @@ export const useSettings = create<SettingsState>()(
       setAnomalySensitivity: (sensitivity) => set({ anomalySensitivity: sensitivity }),
 
       setPredictionHorizon: (horizon) => set({ predictionHorizon: horizon }),
+
+      setCountry: (country) => set({ country }),
+
+      setDataSource: (source) => set({ dataSource: source }),
+
+      setLiveApiProvider: (provider) => set({ liveApiProvider: provider }),
     }),
     {
       name: 'air-defense-settings',

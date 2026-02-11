@@ -3,6 +3,8 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { z } from "zod";
 import { storage, type SimulationAircraft, type SimulationMissile, type SimulationAlert } from "./storage";
+import { liveAircraftRouter } from "./liveAircraft";
+import { getCountryConfig, getModelPools, getMissileSystems, DEFAULT_COUNTRY } from "@shared/countryConfigs";
 
 // Zod schemas for WebSocket message validation
 const wsMessageSchema = z.discriminatedUnion("type", [
@@ -58,7 +60,8 @@ function startServerSimulation() {
       const newLng = ac.position.lng + (distance / (111 * Math.cos(ac.position.lat * Math.PI / 180))) * Math.sin(headingRad);
 
       // Keep within bounds or generate new aircraft
-      if (newLat < 35 || newLat > 70 || newLng < -10 || newLng > 40) {
+      const bounds = getCountryConfig(serverCountry).mapBounds;
+      if (newLat < bounds.latMin || newLat > bounds.latMax || newLng < bounds.lngMin || newLng > bounds.lngMax) {
         storage.removeAircraft(ac.id);
         // Generate new aircraft
         const newAc = generateRandomAircraft();
@@ -190,64 +193,30 @@ export function stopServerSimulation() {
   storage.stopSimulation();
 }
 
-// Real-world model pools for server-side generation
-const SERVER_MODELS: Record<SimulationAircraft["type"], { model: string; prefix: string }[]> = {
-  Commercial: [
-    { model: "Boeing 737-800", prefix: "DLH" },
-    { model: "Boeing 777-300ER", prefix: "BAW" },
-    { model: "Airbus A320neo", prefix: "AFR" },
-    { model: "Airbus A330-300", prefix: "KLM" },
-    { model: "Boeing 747-8", prefix: "SWR" },
-    { model: "Airbus A380-800", prefix: "UAE" },
-    { model: "Boeing 787-9 Dreamliner", prefix: "SAS" },
-  ],
-  Military: [
-    { model: "F-16C Fighting Falcon", prefix: "VIPER" },
-    { model: "F-35A Lightning II", prefix: "LIGHT" },
-    { model: "Su-35S Flanker-E", prefix: "FLANKER" },
-    { model: "Eurofighter Typhoon", prefix: "TYPHOON" },
-    { model: "F-22 Raptor", prefix: "RAPTOR" },
-    { model: "F-15E Strike Eagle", prefix: "EAGLE" },
-    { model: "Rafale C", prefix: "RAFALE" },
-    { model: "Su-57 Felon", prefix: "FELON" },
-  ],
-  Private: [
-    { model: "Cessna Citation X", prefix: "N" },
-    { model: "Gulfstream G650", prefix: "N" },
-    { model: "Bombardier Global 7500", prefix: "C-G" },
-    { model: "Beechcraft King Air 350", prefix: "D-I" },
-    { model: "Learjet 75 Liberty", prefix: "N" },
-  ],
-  Drone: [
-    { model: "MQ-9 Reaper", prefix: "REAPER" },
-    { model: "RQ-4 Global Hawk", prefix: "HAWK" },
-    { model: "TB2 Bayraktar", prefix: "BAYRAKTAR" },
-    { model: "Shahed-136", prefix: "SHAHED" },
-    { model: "MQ-1C Gray Eagle", prefix: "GEAGLE" },
-    { model: "Orlan-10", prefix: "ORLAN" },
-    { model: "IAI Heron TP", prefix: "HERON" },
-  ],
-  Unknown: [
-    { model: "Unidentified Fixed-Wing", prefix: "UNK" },
-    { model: "Unidentified Rotorcraft", prefix: "UNK" },
-    { model: "Unidentified Low-RCS", prefix: "UNK" },
-  ],
-};
+// Server-side model pools and SAM systems from shared country config
+let serverCountry = DEFAULT_COUNTRY;
 
-const SERVER_SAM_SYSTEMS = [
-  { designation: "MIM-104 Patriot PAC-3", speed: 5000 },
-  { designation: "S-400 Triumf (40N6E)", speed: 4800 },
-  { designation: "IRIS-T SLM", speed: 3600 },
-  { designation: "NASAMS AIM-120", speed: 4000 },
-  { designation: "Aster 30 SAMP/T", speed: 4200 },
-  { designation: "Buk-M3 (9M317MA)", speed: 3400 },
-];
+function getServerModels(): Record<string, { model: string; prefix: string }[]> {
+  const config = getCountryConfig(serverCountry);
+  const pools = getModelPools(config);
+  const result: Record<string, { model: string; prefix: string }[]> = {};
+  for (const [type, models] of Object.entries(pools)) {
+    result[type] = models.map(m => ({ model: m.model, prefix: m.callsignPrefix }));
+  }
+  return result;
+}
+
+function getServerSAMSystems(): { designation: string; speed: number }[] {
+  const config = getCountryConfig(serverCountry);
+  return getMissileSystems(config);
+}
 
 // Helper functions
 function generateRandomAircraft(): SimulationAircraft {
   const types: SimulationAircraft["type"][] = ["Commercial", "Military", "Private", "Drone", "Unknown"];
   const type = types[Math.floor(Math.random() * types.length)];
-  const pool = SERVER_MODELS[type];
+  const models = getServerModels();
+  const pool = models[type];
   const modelDef = pool[Math.floor(Math.random() * pool.length)];
 
   let callsign: string;
@@ -283,11 +252,14 @@ function generateRandomAircraft(): SimulationAircraft {
 
   const isDrone = type === "Drone";
 
+  const config = getCountryConfig(serverCountry);
+  const { spawnBounds } = config;
+
   return {
     id: `AC${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
     position: {
-      lat: Math.random() * 35 + 35,
-      lng: Math.random() * 50 - 10,
+      lat: spawnBounds.latMin + Math.random() * (spawnBounds.latMax - spawnBounds.latMin),
+      lng: spawnBounds.lngMin + Math.random() * (spawnBounds.lngMax - spawnBounds.lngMin),
       altitude: isDrone ? Math.floor(Math.random() * 3000) + 100 : Math.floor(Math.random() * 12000) + 1000,
     },
     speed: isDrone ? Math.floor(Math.random() * 150) + 50 : Math.floor(Math.random() * 600) + 200,
@@ -358,9 +330,10 @@ function generateRandomAlert(): SimulationAlert {
   };
 
   if (alertCategory.type === "DETECTION" || alertCategory.type === "THREAT") {
+    const alertBounds = getCountryConfig(serverCountry).mapBounds;
     alert.position = {
-      lat: Math.random() * 35 + 35,
-      lng: Math.random() * 50 - 10,
+      lat: alertBounds.latMin + Math.random() * (alertBounds.latMax - alertBounds.latMin),
+      lng: alertBounds.lngMin + Math.random() * (alertBounds.lngMax - alertBounds.lngMin),
     };
   }
 
@@ -368,8 +341,10 @@ function generateRandomAlert(): SimulationAlert {
 }
 
 function launchMissileAt(target: SimulationAircraft): SimulationMissile {
-  const radarPosition = { lat: 50.0, lng: 10.0, altitude: 0 };
-  const sam = SERVER_SAM_SYSTEMS[Math.floor(Math.random() * SERVER_SAM_SYSTEMS.length)];
+  const config = getCountryConfig(serverCountry);
+  const radarPosition = { ...config.radarCenter, altitude: 0 };
+  const samSystems = getServerSAMSystems();
+  const sam = samSystems[Math.floor(Math.random() * samSystems.length)];
 
   return {
     id: `MSL${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
@@ -458,6 +433,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("WebSocket client disconnected. Total clients:", wsClients.size);
     });
   });
+
+  // Mount live aircraft API proxy
+  app.use("/api/live", liveAircraftRouter);
 
   // REST API Routes
 

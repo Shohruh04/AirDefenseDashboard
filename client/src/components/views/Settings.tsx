@@ -1,10 +1,17 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Slider } from "../ui/slider";
 import { Switch } from "../ui/switch";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import {
   Play,
   Pause,
@@ -17,10 +24,13 @@ import {
   SkipBack,
   Rewind,
   Brain,
+  Globe,
+  Radio,
 } from "lucide-react";
 import { useSettings } from "../../lib/stores/useSettings";
 import { useSimulation } from "../../lib/stores/useSimulation";
 import { usePlayback } from "../../lib/stores/usePlayback";
+import { COUNTRY_CONFIGS, getCountryConfig } from "@shared/countryConfigs";
 
 const Settings: React.FC = () => {
   const {
@@ -31,6 +41,9 @@ const Settings: React.FC = () => {
     aiEnabled,
     anomalySensitivity,
     predictionHorizon,
+    country,
+    dataSource,
+    liveApiProvider,
     toggleSimulation,
     setRefreshRate,
     setViewMode,
@@ -38,7 +51,12 @@ const Settings: React.FC = () => {
     setAiEnabled,
     setAnomalySensitivity,
     setPredictionHorizon,
+    setCountry,
+    setDataSource,
+    setLiveApiProvider,
   } = useSettings();
+
+  const countryConfig = useMemo(() => getCountryConfig(country), [country]);
 
   const { startSimulation, stopSimulation, isRunning } = useSimulation();
   const { isPaused, isRewinding, history, togglePause, rewind, clearHistory } =
@@ -68,6 +86,117 @@ const Settings: React.FC = () => {
             Configure AI parameters, simulation settings, and display preferences
           </p>
         </div>
+
+        {/* Region & Data Source */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5 text-blue-500" />
+              Region & Data Source
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label className="text-base font-medium">Country / Region</Label>
+                <p className="text-sm text-muted-foreground">
+                  Select the air defense region. Changes radar center, defense systems, and aircraft models.
+                </p>
+              </div>
+              <Select value={country} onValueChange={setCountry}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Select country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.values(COUNTRY_CONFIGS).map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label className="text-base font-medium">Data Source</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Choose between synthetic, live aircraft, or hybrid mode
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={dataSource === "simulation" ? "default" : "outline"}
+                    onClick={() => setDataSource("simulation")}
+                    size="sm"
+                  >
+                    Simulation
+                  </Button>
+                  <Button
+                    variant={dataSource === "live" ? "default" : "outline"}
+                    onClick={() => setDataSource("live")}
+                    size="sm"
+                  >
+                    Live
+                  </Button>
+                  <Button
+                    variant={dataSource === "hybrid" ? "default" : "outline"}
+                    onClick={() => setDataSource("hybrid")}
+                    size="sm"
+                  >
+                    Hybrid
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {(dataSource === "live" || dataSource === "hybrid") && (
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label className="text-base font-medium flex items-center gap-2">
+                    <Radio className="h-4 w-4" />
+                    Live API Provider
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Select the aircraft data source API
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={liveApiProvider === "airplanes-live" ? "default" : "outline"}
+                    onClick={() => setLiveApiProvider("airplanes-live")}
+                    size="sm"
+                  >
+                    Airplanes.Live
+                  </Button>
+                  <Button
+                    variant={liveApiProvider === "opensky" ? "default" : "outline"}
+                    onClick={() => setLiveApiProvider("opensky")}
+                    size="sm"
+                  >
+                    OpenSky
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="p-3 rounded-md bg-muted/50 text-sm space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Radar Center:</span>
+                <span className="font-mono">{countryConfig.radarCenter.lat.toFixed(1)}°N, {countryConfig.radarCenter.lng.toFixed(1)}°E</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Defense Systems:</span>
+                <span>{countryConfig.defenseSystems.length} active</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Air Bases:</span>
+                <span>{countryConfig.airBases.length} monitored</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Simulation Control */}
         <Card className="mb-6">
