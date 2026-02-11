@@ -1,7 +1,25 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
+import { z } from "zod";
 import { storage, type SimulationAircraft, type SimulationMissile, type SimulationAlert } from "./storage";
+
+// Zod schemas for WebSocket message validation
+const wsMessageSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("start_simulation") }),
+  z.object({ type: z.literal("stop_simulation") }),
+  z.object({ type: z.literal("launch_missile"), targetId: z.string().min(1) }),
+  z.object({ type: z.literal("get_state") }),
+]);
+
+// Zod schemas for REST input validation
+const launchMissileBodySchema = z.object({
+  targetId: z.string().min(1, "targetId is required"),
+});
+
+const limitQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(1000).optional().default(100),
+});
 
 // WebSocket clients set
 const wsClients = new Set<WebSocket>();
@@ -11,7 +29,12 @@ function broadcast(type: string, data: any) {
   const message = JSON.stringify({ type, data, timestamp: Date.now() });
   wsClients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
+      try {
+        client.send(message);
+      } catch (err) {
+        console.error("WebSocket send error, removing client:", err);
+        wsClients.delete(client);
+      }
     }
   });
 }
@@ -107,6 +130,9 @@ function startServerSimulation() {
     if (missiles.length > 0) {
       broadcast("missiles_update", storage.getMissiles());
     }
+
+    // Periodically clean up old inactive missiles
+    storage.cleanupInactiveMissiles(30000);
   }, 100);
 
   // Auto-launch missiles at hostile/suspect aircraft every 8-15 seconds
@@ -158,7 +184,7 @@ function startServerSimulation() {
   storage.startSimulation();
 }
 
-function stopServerSimulation() {
+export function stopServerSimulation() {
   simulationIntervals.forEach((interval) => clearInterval(interval));
   simulationIntervals = [];
   storage.stopSimulation();
@@ -166,11 +192,18 @@ function stopServerSimulation() {
 
 // Helper functions
 function generateRandomAircraft(): SimulationAircraft {
-  const types: SimulationAircraft["type"][] = ["Commercial", "Military", "Private", "Unknown"];
-  const prefixes = ["AIR", "SKY", "FLT", "UAV", "MIL", "PVT"];
+  const types: SimulationAircraft["type"][] = ["Commercial", "Military", "Private", "Drone", "Unknown"];
+  const prefixes: Record<SimulationAircraft["type"], string[]> = {
+    Commercial: ["AIR", "SKY", "FLT"],
+    Military: ["MIL", "AFB", "JET"],
+    Private: ["PVT", "SKY", "FLT"],
+    Drone: ["UAV", "DRN", "RPA"],
+    Unknown: ["UNK", "UFO", "IDK"],
+  };
 
   const type = types[Math.floor(Math.random() * types.length)];
-  const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+  const typePrefixes = prefixes[type];
+  const prefix = typePrefixes[Math.floor(Math.random() * typePrefixes.length)];
   const number = Math.floor(Math.random() * 899) + 100;
 
   let threatLevel: SimulationAircraft["threatLevel"];
@@ -180,20 +213,24 @@ function generateRandomAircraft(): SimulationAircraft {
     threatLevel = random < 0.9 ? "FRIENDLY" : "NEUTRAL";
   } else if (type === "Military") {
     threatLevel = random < 0.5 ? "FRIENDLY" : random < 0.8 ? "NEUTRAL" : "SUSPECT";
+  } else if (type === "Drone") {
+    threatLevel = random < 0.3 ? "NEUTRAL" : random < 0.7 ? "SUSPECT" : "HOSTILE";
   } else if (type === "Unknown") {
     threatLevel = random < 0.3 ? "NEUTRAL" : random < 0.7 ? "SUSPECT" : "HOSTILE";
   } else {
     threatLevel = random < 0.8 ? "FRIENDLY" : "NEUTRAL";
   }
 
+  const isDrone = type === "Drone";
+
   return {
     id: `AC${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
     position: {
       lat: Math.random() * 35 + 35,
       lng: Math.random() * 50 - 10,
-      altitude: Math.floor(Math.random() * 12000) + 1000,
+      altitude: isDrone ? Math.floor(Math.random() * 3000) + 100 : Math.floor(Math.random() * 12000) + 1000,
     },
-    speed: Math.floor(Math.random() * 600) + 200,
+    speed: isDrone ? Math.floor(Math.random() * 150) + 50 : Math.floor(Math.random() * 600) + 200,
     heading: Math.floor(Math.random() * 360),
     type,
     callsign: `${prefix}${number}`,
@@ -224,6 +261,8 @@ function generateRandomAlert(): SimulationAlert {
         "Unidentified aircraft detected - altitude 8500m",
         "Aircraft deviating from assigned flight path",
         "Unknown contact - IFF not responding",
+        "Unauthorized drone detected in restricted airspace",
+        "UAV swarm activity detected - sector Charlie-5",
       ],
     },
     {
@@ -341,7 +380,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const data = JSON.parse(message.toString());
         handleWebSocketMessage(ws, data);
       } catch (e) {
-        console.error("WebSocket message error:", e);
+        console.error("WebSocket message parse error:", e);
+        try {
+          ws.send(JSON.stringify({ type: "error", data: { message: "Invalid JSON message" }, timestamp: Date.now() }));
+        } catch {
+          // Client already disconnected
+          wsClients.delete(ws);
+        }
       }
     });
 
@@ -370,7 +415,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get all alerts
   app.get("/api/alerts", (req, res) => {
-    const limit = parseInt(req.query.limit as string) || 100;
+    const parsed = limitQuerySchema.safeParse(req.query);
+    const limit = parsed.success ? parsed.data.limit! : 100;
     const alerts = storage.getAlerts().slice(0, limit);
     res.json(alerts);
   });
@@ -394,11 +440,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Launch missile at target
   app.post("/api/missiles/launch", (req, res) => {
-    const { targetId } = req.body;
-
-    if (!targetId) {
-      return res.status(400).json({ error: "targetId is required" });
+    const parsed = launchMissileBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.flatten().fieldErrors });
     }
+
+    const { targetId } = parsed.data;
 
     const target = storage.getAircraftById(targetId);
     if (!target) {
@@ -470,8 +517,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 }
 
 // Handle WebSocket commands from clients
-function handleWebSocketMessage(ws: WebSocket, data: any) {
-  switch (data.type) {
+function handleWebSocketMessage(ws: WebSocket, data: unknown) {
+  const result = wsMessageSchema.safeParse(data);
+  if (!result.success) {
+    ws.send(JSON.stringify({
+      type: "error",
+      data: { message: "Invalid message format", errors: result.error.flatten().fieldErrors },
+      timestamp: Date.now(),
+    }));
+    return;
+  }
+
+  const msg = result.data;
+
+  switch (msg.type) {
     case "start_simulation":
       if (!storage.isSimulationRunning()) {
         startServerSimulation();
@@ -486,8 +545,8 @@ function handleWebSocketMessage(ws: WebSocket, data: any) {
       }
       break;
 
-    case "launch_missile":
-      const target = storage.getAircraftById(data.targetId);
+    case "launch_missile": {
+      const target = storage.getAircraftById(msg.targetId);
       if (target && storage.getSystemStatus().missileReady > 0) {
         const missile = launchMissileAt(target);
         storage.addMissile(missile);
@@ -497,6 +556,7 @@ function handleWebSocketMessage(ws: WebSocket, data: any) {
         broadcast("missile_launch", missile);
       }
       break;
+    }
 
     case "get_state":
       ws.send(
@@ -512,8 +572,5 @@ function handleWebSocketMessage(ws: WebSocket, data: any) {
         })
       );
       break;
-
-    default:
-      console.log("Unknown WebSocket message type:", data.type);
   }
 }

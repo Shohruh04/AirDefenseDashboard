@@ -1,393 +1,219 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useMemo, useCallback } from "react";
+import { MapContainer, TileLayer, Circle, Polyline, Marker, Popup, useMap, LayersControl } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { useSimulation } from "../../lib/stores/useSimulation";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { getThreatLevelColor, getThreatLevelLabel } from "../../lib/simulation";
-import { Play, Square, Radar, Crosshair, Plane, Zap } from "lucide-react";
+import type { Aircraft, Missile } from "../../lib/simulation";
+import { Play, Square, Radar, Plane, Zap } from "lucide-react";
 
-declare global {
-  interface Window {
-    L: any;
+// Radar center coordinates
+const RADAR_CENTER: [number, number] = [50.0, 10.0];
+
+// Radar range ring definitions
+const RADAR_RANGES = [
+  { radius: 50000, color: "#00ff88", label: "50km", dash: "8 4" },
+  { radius: 100000, color: "#00ccff", label: "100km", dash: "8 4" },
+  { radius: 150000, color: "#ffaa00", label: "150km", dash: "12 6" },
+  { radius: 200000, color: "#ff6600", label: "200km", dash: "12 6" },
+  { radius: 300000, color: "#ff3333", label: "300km", dash: "16 8" },
+];
+
+// Create SVG aircraft icon based on type and threat level
+function createAircraftDivIcon(ac: Aircraft, isSelected: boolean): L.DivIcon {
+  const color = getThreatLevelColor(ac.threatLevel);
+  const size = isSelected ? 32 : 24;
+  const rotation = ac.heading - 90;
+
+  let iconPath: string;
+  switch (ac.type) {
+    case "Military":
+      iconPath = "M12 2 L8 8 L4 8 L4 10 L8 10 L10 14 L6 18 L8 18 L12 14 L16 18 L18 18 L14 14 L16 10 L20 10 L20 8 L16 8 Z";
+      break;
+    case "Commercial":
+      iconPath = "M12 2 L10 6 L4 8 L4 10 L10 9 L11 14 L6 18 L8 18 L12 15 L16 18 L18 18 L13 14 L14 9 L20 10 L20 8 L14 6 Z";
+      break;
+    case "Drone":
+      iconPath = "M12 6 L6 12 L12 18 L18 12 Z M8 8 L4 4 M16 8 L20 4 M8 16 L4 20 M16 16 L20 20";
+      break;
+    default:
+      iconPath = "M12 4 L8 8 L2 8 L2 10 L8 10 L8 14 L4 18 L6 18 L12 12 L18 18 L20 18 L16 14 L16 10 L22 10 L22 8 L16 8 Z";
   }
+
+  const selectionRing = isSelected
+    ? `<circle cx="12" cy="12" r="14" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="4,4">
+        <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="2s" repeatCount="indefinite"/>
+      </circle>`
+    : "";
+
+  const hostile = ac.threatLevel === "HOSTILE" ? "animation:blink .5s infinite;" : "";
+
+  const html = `<svg width="${size}" height="${size}" viewBox="0 0 24 24"
+    style="transform:rotate(${rotation}deg);filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));${hostile}">
+    <path d="${iconPath}" fill="${color}" stroke="#fff" stroke-width="1"/>
+    ${selectionRing}
+  </svg>`;
+
+  return L.divIcon({
+    className: "aircraft-icon",
+    html,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
+// Create missile icon
+function createMissileDivIcon(rotation: number): L.DivIcon {
+  const html = `<svg width="20" height="20" viewBox="0 0 24 24"
+    style="transform:rotate(${rotation}deg);filter:drop-shadow(0 0 6px #ff6600);">
+    <path d="M12 2 L8 10 L10 10 L10 18 L8 18 L12 22 L16 18 L14 18 L14 10 L16 10 Z" fill="#ff6600" stroke="#fff" stroke-width="1"/>
+    <circle cx="12" cy="6" r="2" fill="#ffff00"/>
+  </svg>`;
+  return L.divIcon({
+    className: "missile-icon",
+    html,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+  });
+}
+
+// Radar center icon
+const radarCenterIcon = L.divIcon({
+  className: "radar-center-icon",
+  html: `<div style="position:relative;width:40px;height:40px;">
+    <div style="position:absolute;width:40px;height:40px;border:3px solid #00ff88;border-radius:50%;animation:pulse-ring 2s infinite;"></div>
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:16px;height:16px;background:#00ff88;border-radius:50%;box-shadow:0 0 20px #00ff88;"></div>
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:8px;height:8px;background:#fff;border-radius:50%;"></div>
+  </div>`,
+  iconSize: [40, 40],
+  iconAnchor: [20, 20],
+});
+
+// Inject custom CSS once
+const styleId = "map2d-custom-styles";
+if (typeof document !== "undefined" && !document.getElementById(styleId)) {
+  const style = document.createElement("style");
+  style.id = styleId;
+  style.textContent = `
+    @keyframes pulse-ring { 0%{transform:scale(.8);opacity:1} 100%{transform:scale(1.5);opacity:0} }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .aircraft-icon,.missile-icon,.radar-center-icon { background:none!important; border:none!important; }
+    .leaflet-popup-content-wrapper { background:rgba(20,20,30,.95);color:#fff;border:1px solid #00ff88;border-radius:8px; }
+    .leaflet-popup-tip { background:rgba(20,20,30,.95);border:1px solid #00ff88; }
+    .leaflet-popup-content { margin:12px; }
+  `;
+  document.head.appendChild(style);
+}
+
+// Component to render a single aircraft marker
+const AircraftMarker: React.FC<{
+  ac: Aircraft;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+}> = React.memo(({ ac, isSelected, onSelect }) => {
+  const icon = useMemo(() => createAircraftDivIcon(ac, isSelected), [ac.heading, ac.threatLevel, ac.type, isSelected]);
+  const color = getThreatLevelColor(ac.threatLevel);
+  const position: [number, number] = [ac.position.lat, ac.position.lng];
+
+  // Flight path prediction line
+  const predictionDistance = ac.speed / 1000;
+  const headingRad = (ac.heading * Math.PI) / 180;
+  const predEnd: [number, number] = [
+    ac.position.lat + predictionDistance * Math.cos(headingRad),
+    ac.position.lng + predictionDistance * Math.sin(headingRad) * 1.5,
+  ];
+
+  return (
+    <>
+      <Marker position={position} icon={icon} eventHandlers={{ click: () => onSelect(ac.id) }}>
+        <Popup>
+          <div style={{ minWidth: 180 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,.2)" }}>
+              <div style={{ width: 12, height: 12, background: color, borderRadius: "50%" }} />
+              <span style={{ fontSize: 16, fontWeight: "bold", color }}>{ac.callsign}</span>
+            </div>
+            <div style={{ display: "grid", gap: 4, fontSize: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "#888" }}>Type:</span>
+                <span style={{ color: "#fff" }}>{ac.type}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "#888" }}>Threat:</span>
+                <span style={{ color, fontWeight: "bold" }}>{getThreatLevelLabel(ac.threatLevel)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "#888" }}>Altitude:</span>
+                <span style={{ color: "#00ff88" }}>{ac.position.altitude.toLocaleString()}m</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "#888" }}>Speed:</span>
+                <span style={{ color: "#00ccff" }}>{ac.speed} km/h</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "#888" }}>Heading:</span>
+                <span style={{ color: "#fff" }}>{ac.heading}°</span>
+              </div>
+            </div>
+          </div>
+        </Popup>
+      </Marker>
+      {/* Prediction path */}
+      <Polyline positions={[position, predEnd]} pathOptions={{ color, weight: 1, opacity: 0.4, dashArray: "4 8" }} />
+    </>
+  );
+});
+
+AircraftMarker.displayName = "AircraftMarker";
+
+// Component to render a single missile track
+const MissileTrack: React.FC<{ missile: Missile }> = React.memo(({ missile }) => {
+  const dx = missile.targetPosition.lng - missile.currentPosition.lng;
+  const dy = missile.targetPosition.lat - missile.currentPosition.lat;
+  const rotation = Math.atan2(dx, dy) * (180 / Math.PI);
+
+  const icon = useMemo(() => createMissileDivIcon(rotation), [rotation]);
+
+  const currentPos: [number, number] = [missile.currentPosition.lat, missile.currentPosition.lng];
+  const startPos: [number, number] = [missile.startPosition.lat, missile.startPosition.lng];
+  const targetPos: [number, number] = [missile.targetPosition.lat, missile.targetPosition.lng];
+
+  return (
+    <>
+      {/* Trail from start to current */}
+      <Polyline positions={[startPos, currentPos]} pathOptions={{ color: "#ff6600", weight: 3, opacity: 0.8 }} />
+      {/* Predicted trajectory */}
+      <Polyline positions={[currentPos, targetPos]} pathOptions={{ color: "#ff3333", weight: 1, opacity: 0.5, dashArray: "6 6" }} />
+      {/* Missile marker */}
+      <Marker position={currentPos} icon={icon} />
+      {/* Target lock circle */}
+      <Circle center={targetPos} radius={1500} pathOptions={{ color: "#ff3333", weight: 2, opacity: 0.8, dashArray: "4 4", fill: false }} />
+    </>
+  );
+});
+
+MissileTrack.displayName = "MissileTrack";
+
+// Invalidate map size when container resizes
+function MapResizeHandler() {
+  const map = useMap();
+  React.useEffect(() => {
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
+  return null;
 }
 
 const Map2D: React.FC = () => {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const leafletMapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
-  const missileMarkersRef = useRef<any[]>([]);
-  const radarZonesRef = useRef<any[]>([]);
-  const radarSweepRef = useRef<any>(null);
-  const animationRef = useRef<number | null>(null);
-
   const { aircraft, missiles, isRunning, startSimulation, stopSimulation, systemStatus } = useSimulation();
-  const [selectedAircraft, setSelectedAircraft] = useState<string | null>(null);
+  const [selectedAircraft, setSelectedAircraft] = React.useState<string | null>(null);
 
-  // Radar center coordinates
-  const RADAR_CENTER: [number, number] = [50.0, 10.0];
+  const handleSelect = useCallback((id: string) => setSelectedAircraft(id), []);
 
-  // Aircraft icon SVG generator
-  const createAircraftIcon = (heading: number, color: string, type: string, isSelected: boolean) => {
-    const size = isSelected ? 32 : 24;
-    const rotation = heading - 90; // Adjust for SVG orientation
-
-    let iconPath = '';
-    if (type === 'Military') {
-      // Fighter jet shape
-      iconPath = 'M12 2 L8 8 L4 8 L4 10 L8 10 L10 14 L6 18 L8 18 L12 14 L16 18 L18 18 L14 14 L16 10 L20 10 L20 8 L16 8 Z';
-    } else if (type === 'Commercial') {
-      // Airliner shape
-      iconPath = 'M12 2 L10 6 L4 8 L4 10 L10 9 L11 14 L6 18 L8 18 L12 15 L16 18 L18 18 L13 14 L14 9 L20 10 L20 8 L14 6 Z';
-    } else {
-      // Drone/Unknown shape
-      iconPath = 'M12 4 L8 8 L2 8 L2 10 L8 10 L8 14 L4 18 L6 18 L12 12 L18 18 L20 18 L16 14 L16 10 L22 10 L22 8 L16 8 Z';
-    }
-
-    return `
-      <svg width="${size}" height="${size}" viewBox="0 0 24 24"
-           style="transform: rotate(${rotation}deg); filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
-        <path d="${iconPath}" fill="${color}" stroke="#ffffff" stroke-width="1"/>
-        ${isSelected ? `<circle cx="12" cy="12" r="14" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="4,4">
-          <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="2s" repeatCount="indefinite"/>
-        </circle>` : ''}
-      </svg>
-    `;
-  };
-
-  // Initialize map
-  useEffect(() => {
-    if (!mapRef.current || leafletMapRef.current) return;
-
-    const L = window.L;
-    if (!L) return;
-
-    // Initialize map with dark theme
-    const map = L.map(mapRef.current, {
-      zoomControl: false,
-    }).setView(RADAR_CENTER, 6);
-
-    leafletMapRef.current = map;
-
-    // Add zoom control to top right
-    L.control.zoom({ position: 'topright' }).addTo(map);
-
-    // Dark tile layer for tactical look
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '© OpenStreetMap, © CARTO',
-      maxZoom: 19,
-    }).addTo(map);
-
-    // Add radar center marker
-    const radarIcon = L.divIcon({
-      className: 'radar-center',
-      html: `
-        <div style="position: relative; width: 40px; height: 40px;">
-          <div style="
-            position: absolute;
-            width: 40px; height: 40px;
-            border: 3px solid #00ff88;
-            border-radius: 50%;
-            animation: pulse-ring 2s infinite;
-          "></div>
-          <div style="
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 16px; height: 16px;
-            background: #00ff88;
-            border-radius: 50%;
-            box-shadow: 0 0 20px #00ff88;
-          "></div>
-          <div style="
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 8px; height: 8px;
-            background: #ffffff;
-            border-radius: 50%;
-          "></div>
-        </div>
-      `,
-      iconSize: [40, 40],
-      iconAnchor: [20, 20],
-    });
-
-    L.marker(RADAR_CENTER, { icon: radarIcon }).addTo(map);
-
-    // Add radar coverage zones with better styling
-    const ranges = [
-      { radius: 50000, color: '#00ff88', label: '50km' },
-      { radius: 100000, color: '#00ccff', label: '100km' },
-      { radius: 150000, color: '#ffaa00', label: '150km' },
-      { radius: 200000, color: '#ff6600', label: '200km' },
-      { radius: 300000, color: '#ff3333', label: '300km' },
-    ];
-
-    ranges.forEach((range) => {
-      const circle = L.circle(RADAR_CENTER, {
-        radius: range.radius,
-        fillColor: range.color,
-        fillOpacity: 0.03,
-        color: range.color,
-        weight: 1,
-        opacity: 0.5,
-      }).addTo(map);
-      radarZonesRef.current.push(circle);
-    });
-
-    // Add grid lines for tactical look
-    for (let i = -5; i <= 5; i++) {
-      // Horizontal lines
-      L.polyline([[RADAR_CENTER[0] + i, RADAR_CENTER[1] - 8], [RADAR_CENTER[0] + i, RADAR_CENTER[1] + 8]], {
-        color: '#00ff88',
-        weight: 0.5,
-        opacity: 0.15,
-      }).addTo(map);
-      // Vertical lines
-      L.polyline([[RADAR_CENTER[0] - 5, RADAR_CENTER[1] + i * 1.5], [RADAR_CENTER[0] + 5, RADAR_CENTER[1] + i * 1.5]], {
-        color: '#00ff88',
-        weight: 0.5,
-        opacity: 0.15,
-      }).addTo(map);
-    }
-
-    // Add radar sweep line (animated)
-    const sweepLine = L.polyline([[RADAR_CENTER[0], RADAR_CENTER[1]], [RADAR_CENTER[0] + 3, RADAR_CENTER[1]]], {
-      color: '#00ff88',
-      weight: 2,
-      opacity: 0.8,
-    }).addTo(map);
-    radarSweepRef.current = sweepLine;
-
-    // Animate radar sweep
-    let sweepAngle = 0;
-    const animateSweep = () => {
-      sweepAngle += 0.02;
-      const radius = 3;
-      const endLat = RADAR_CENTER[0] + radius * Math.cos(sweepAngle);
-      const endLng = RADAR_CENTER[1] + radius * Math.sin(sweepAngle) * 1.5;
-      if (radarSweepRef.current) {
-        radarSweepRef.current.setLatLngs([RADAR_CENTER, [endLat, endLng]]);
-      }
-      animationRef.current = requestAnimationFrame(animateSweep);
-    };
-    animateSweep();
-
-    // Add CSS for animations
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes pulse-ring {
-        0% { transform: scale(0.8); opacity: 1; }
-        100% { transform: scale(1.5); opacity: 0; }
-      }
-      @keyframes blink {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.3; }
-      }
-      .threat-hostile { animation: blink 0.5s infinite; }
-      .leaflet-popup-content-wrapper {
-        background: rgba(20, 20, 30, 0.95);
-        color: #ffffff;
-        border: 1px solid #00ff88;
-        border-radius: 8px;
-      }
-      .leaflet-popup-tip {
-        background: rgba(20, 20, 30, 0.95);
-        border: 1px solid #00ff88;
-      }
-      .leaflet-popup-content {
-        margin: 12px;
-      }
-    `;
-    document.head.appendChild(style);
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-      if (leafletMapRef.current) {
-        leafletMapRef.current.remove();
-        leafletMapRef.current = null;
-      }
-    };
-  }, []);
-
-  // Update aircraft markers
-  useEffect(() => {
-    if (!leafletMapRef.current) return;
-
-    const L = window.L;
-    const map = leafletMapRef.current;
-
-    // Clear existing markers
-    markersRef.current.forEach((marker) => map.removeLayer(marker));
-    markersRef.current = [];
-
-    // Add aircraft markers
-    aircraft.forEach((ac) => {
-      const color = getThreatLevelColor(ac.threatLevel);
-      const isSelected = selectedAircraft === ac.id;
-
-      // Create custom aircraft icon
-      const icon = L.divIcon({
-        className: `aircraft-marker ${ac.threatLevel === 'HOSTILE' ? 'threat-hostile' : ''}`,
-        html: createAircraftIcon(ac.heading, color, ac.type, isSelected),
-        iconSize: [isSelected ? 32 : 24, isSelected ? 32 : 24],
-        iconAnchor: [isSelected ? 16 : 12, isSelected ? 16 : 12],
-      });
-
-      const marker = L.marker([ac.position.lat, ac.position.lng], { icon });
-
-      // Popup content
-      const popupContent = `
-        <div style="min-width: 180px;">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.2);">
-            <div style="width: 12px; height: 12px; background: ${color}; border-radius: 50%;"></div>
-            <span style="font-size: 16px; font-weight: bold; color: ${color};">${ac.callsign}</span>
-          </div>
-          <div style="display: grid; gap: 4px; font-size: 12px;">
-            <div style="display: flex; justify-content: space-between;">
-              <span style="color: #888;">Type:</span>
-              <span style="color: #fff;">${ac.type}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between;">
-              <span style="color: #888;">Threat:</span>
-              <span style="color: ${color}; font-weight: bold;">${getThreatLevelLabel(ac.threatLevel)}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between;">
-              <span style="color: #888;">Altitude:</span>
-              <span style="color: #00ff88;">${ac.position.altitude.toLocaleString()}m</span>
-            </div>
-            <div style="display: flex; justify-content: space-between;">
-              <span style="color: #888;">Speed:</span>
-              <span style="color: #00ccff;">${ac.speed} km/h</span>
-            </div>
-            <div style="display: flex; justify-content: space-between;">
-              <span style="color: #888;">Heading:</span>
-              <span style="color: #fff;">${ac.heading}°</span>
-            </div>
-          </div>
-        </div>
-      `;
-
-      marker.bindPopup(popupContent);
-      marker.on('click', () => setSelectedAircraft(ac.id));
-      marker.addTo(map);
-      markersRef.current.push(marker);
-
-      // Add flight path prediction (dashed line showing future path)
-      const predictionDistance = ac.speed / 1000; // km based on speed
-      const predPath = L.polyline([
-        [ac.position.lat, ac.position.lng],
-        [
-          ac.position.lat + predictionDistance * Math.cos((ac.heading * Math.PI) / 180),
-          ac.position.lng + predictionDistance * Math.sin((ac.heading * Math.PI) / 180) * 1.5,
-        ],
-      ], {
-        color: color,
-        weight: 1,
-        opacity: 0.4,
-        dashArray: '4, 8',
-      }).addTo(map);
-      markersRef.current.push(predPath);
-
-      // Add altitude indicator ring for high-flying aircraft
-      if (ac.position.altitude > 10000) {
-        const altRing = L.circleMarker([ac.position.lat, ac.position.lng], {
-          radius: 18,
-          fillColor: 'transparent',
-          color: color,
-          weight: 1,
-          opacity: 0.3,
-          dashArray: '2, 4',
-        }).addTo(map);
-        markersRef.current.push(altRing);
-      }
-    });
-  }, [aircraft, selectedAircraft]);
-
-  // Update missile markers
-  useEffect(() => {
-    if (!leafletMapRef.current) return;
-
-    const L = window.L;
-    const map = leafletMapRef.current;
-
-    // Clear existing missile markers
-    missileMarkersRef.current.forEach((marker) => map.removeLayer(marker));
-    missileMarkersRef.current = [];
-
-    // Add active missiles
-    missiles.filter((m) => m.active).forEach((missile) => {
-      // Calculate rotation
-      const dx = missile.targetPosition.lng - missile.currentPosition.lng;
-      const dy = missile.targetPosition.lat - missile.currentPosition.lat;
-      const rotation = Math.atan2(dx, dy) * (180 / Math.PI);
-
-      // Missile trail
-      const trail = L.polyline([
-        [missile.startPosition.lat, missile.startPosition.lng],
-        [missile.currentPosition.lat, missile.currentPosition.lng],
-      ], {
-        color: '#ff6600',
-        weight: 3,
-        opacity: 0.8,
-      }).addTo(map);
-      missileMarkersRef.current.push(trail);
-
-      // Trajectory prediction
-      const trajectory = L.polyline([
-        [missile.currentPosition.lat, missile.currentPosition.lng],
-        [missile.targetPosition.lat, missile.targetPosition.lng],
-      ], {
-        color: '#ff3333',
-        weight: 1,
-        opacity: 0.5,
-        dashArray: '6, 6',
-      }).addTo(map);
-      missileMarkersRef.current.push(trajectory);
-
-      // Missile icon
-      const missileIcon = L.divIcon({
-        className: 'missile-marker',
-        html: `
-          <svg width="20" height="20" viewBox="0 0 24 24" style="transform: rotate(${rotation}deg); filter: drop-shadow(0 0 6px #ff6600);">
-            <path d="M12 2 L8 10 L10 10 L10 18 L8 18 L12 22 L16 18 L14 18 L14 10 L16 10 Z" fill="#ff6600" stroke="#ffffff" stroke-width="1"/>
-            <circle cx="12" cy="6" r="2" fill="#ffff00"/>
-          </svg>
-        `,
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
-      });
-
-      const missileMarker = L.marker([missile.currentPosition.lat, missile.currentPosition.lng], { icon: missileIcon });
-      missileMarker.addTo(map);
-      missileMarkersRef.current.push(missileMarker);
-
-      // Target lock indicator
-      const targetLock = L.circleMarker([missile.targetPosition.lat, missile.targetPosition.lng], {
-        radius: 15,
-        fillColor: 'transparent',
-        color: '#ff3333',
-        weight: 2,
-        opacity: 0.8,
-        dashArray: '4, 4',
-      }).addTo(map);
-      missileMarkersRef.current.push(targetLock);
-
-      // Inner target
-      const targetInner = L.circleMarker([missile.targetPosition.lat, missile.targetPosition.lng], {
-        radius: 6,
-        fillColor: '#ff3333',
-        color: '#ff3333',
-        weight: 1,
-        opacity: 0.6,
-        fillOpacity: 0.3,
-      }).addTo(map);
-      missileMarkersRef.current.push(targetInner);
-    });
-  }, [missiles]);
+  const activeMissiles = useMemo(() => missiles.filter((m) => m.active), [missiles]);
 
   return (
     <div className="w-full h-full flex flex-col bg-gray-900">
@@ -402,11 +228,7 @@ const Map2D: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant={isRunning ? "destructive" : "default"}
-              size="sm"
-              onClick={isRunning ? stopSimulation : startSimulation}
-            >
+            <Button variant={isRunning ? "destructive" : "default"} size="sm" onClick={isRunning ? stopSimulation : startSimulation}>
               {isRunning ? <Square className="h-4 w-4 mr-1" /> : <Play className="h-4 w-4 mr-1" />}
               {isRunning ? "Stop" : "Start"}
             </Button>
@@ -414,10 +236,10 @@ const Map2D: React.FC = () => {
               <Plane className="h-3 w-3 mr-1" />
               {aircraft.length} Tracked
             </Badge>
-            {missiles.filter((m) => m.active).length > 0 && (
+            {activeMissiles.length > 0 && (
               <Badge variant="destructive" className="bg-red-900/50 text-red-400 border-red-700">
                 <Zap className="h-3 w-3 mr-1" />
-                {missiles.filter((m) => m.active).length} Missiles
+                {activeMissiles.length} Missiles
               </Badge>
             )}
           </div>
@@ -426,10 +248,72 @@ const Map2D: React.FC = () => {
 
       {/* Map Container */}
       <div className="flex-1 relative">
-        <div ref={mapRef} className="absolute inset-0 z-10" />
+        <MapContainer
+          center={RADAR_CENTER}
+          zoom={6}
+          zoomControl={false}
+          className="absolute inset-0 z-10"
+          style={{ background: "#0a0a1a" }}
+        >
+          <MapResizeHandler />
+
+          <LayersControl position="topright">
+            <LayersControl.BaseLayer checked name="Dark (Tactical)">
+              <TileLayer
+                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                attribution="&copy; OpenStreetMap, &copy; CARTO"
+                maxZoom={19}
+              />
+            </LayersControl.BaseLayer>
+            <LayersControl.BaseLayer name="Satellite">
+              <TileLayer
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                attribution="&copy; Esri"
+                maxZoom={18}
+              />
+            </LayersControl.BaseLayer>
+            <LayersControl.BaseLayer name="Standard">
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution="&copy; OpenStreetMap contributors"
+                maxZoom={19}
+              />
+            </LayersControl.BaseLayer>
+          </LayersControl>
+
+          {/* Radar center marker */}
+          <Marker position={RADAR_CENTER} icon={radarCenterIcon} />
+
+          {/* Radar range rings */}
+          {RADAR_RANGES.map((range) => (
+            <Circle
+              key={range.label}
+              center={RADAR_CENTER}
+              radius={range.radius}
+              pathOptions={{
+                fillColor: range.color,
+                fillOpacity: 0.03,
+                color: range.color,
+                weight: 1,
+                opacity: 0.5,
+                dashArray: range.dash,
+              }}
+            />
+          ))}
+
+          {/* Aircraft markers */}
+          {aircraft.map((ac) => (
+            <AircraftMarker key={ac.id} ac={ac} isSelected={selectedAircraft === ac.id} onSelect={handleSelect} />
+          ))}
+
+          {/* Active missiles */}
+          {activeMissiles.map((missile) => (
+            <MissileTrack key={missile.id} missile={missile} />
+          ))}
+        </MapContainer>
 
         {/* Status Panel */}
-        <Card className="absolute bottom-4 left-4 z-20 bg-gray-900/90 border-gray-700 w-56">
+        <Card className="absolute bottom-4 left-4 z-[1000] bg-gray-900/90 border-gray-700 w-56">
           <CardContent className="p-3">
             <div className="text-xs text-gray-400 mb-2 font-medium">SYSTEM STATUS</div>
             <div className="space-y-2 text-sm">
@@ -448,8 +332,8 @@ const Map2D: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-gray-400">Threat Level:</span>
                 <span className={`font-mono font-bold ${
-                  systemStatus.threatLevel === 'HIGH' ? 'text-red-400' :
-                  systemStatus.threatLevel === 'MEDIUM' ? 'text-yellow-400' : 'text-green-400'
+                  systemStatus.threatLevel === "HIGH" ? "text-red-400" :
+                  systemStatus.threatLevel === "MEDIUM" ? "text-yellow-400" : "text-green-400"
                 }`}>{systemStatus.threatLevel}</span>
               </div>
             </div>
@@ -457,39 +341,39 @@ const Map2D: React.FC = () => {
         </Card>
 
         {/* Legend */}
-        <Card className="absolute top-4 left-4 z-20 bg-gray-900/90 border-gray-700">
+        <Card className="absolute top-4 left-4 z-[1000] bg-gray-900/90 border-gray-700">
           <CardContent className="p-3">
             <div className="text-xs text-gray-400 mb-2 font-medium">THREAT CLASSIFICATION</div>
             <div className="space-y-1 text-xs">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <div className="w-3 h-3 rounded-full bg-green-500" />
                 <span className="text-gray-300">Friendly</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                <div className="w-3 h-3 rounded-full bg-blue-500" />
                 <span className="text-gray-300">Neutral</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                <div className="w-3 h-3 rounded-full bg-yellow-500" />
                 <span className="text-gray-300">Suspect</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
+                <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
                 <span className="text-gray-300">Hostile</span>
               </div>
             </div>
             <div className="text-xs text-gray-400 mt-3 mb-2 font-medium">RANGE RINGS</div>
             <div className="space-y-1 text-xs">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-0.5 bg-green-400"></div>
+                <div className="w-3 h-0.5 bg-green-400" />
                 <span className="text-gray-300">50km / 100km</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-0.5 bg-yellow-400"></div>
+                <div className="w-3 h-0.5 bg-yellow-400" />
                 <span className="text-gray-300">150km / 200km</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-0.5 bg-red-400"></div>
+                <div className="w-3 h-0.5 bg-red-400" />
                 <span className="text-gray-300">300km</span>
               </div>
             </div>

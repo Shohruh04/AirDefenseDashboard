@@ -1,5 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes, stopServerSimulation } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
@@ -44,7 +44,7 @@ app.use((req, res, next) => {
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    throw err;
+    console.error("Unhandled error:", err);
   });
 
   // importantly only setup vite in development and after
@@ -56,10 +56,23 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client
-  const port = 5000;
+  const port = parseInt(process.env.PORT || "5000", 10);
   server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
   });
+
+  // Graceful shutdown
+  const shutdown = () => {
+    log("Shutting down gracefully...");
+    stopServerSimulation();
+    server.close(() => {
+      log("Server closed");
+      process.exit(0);
+    });
+    // Force exit after 5s if graceful shutdown fails
+    setTimeout(() => process.exit(1), 5000);
+  };
+
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
 })();

@@ -1,5 +1,14 @@
 import type { Alert, Aircraft } from "./simulation";
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 export function exportToCSV(data: any[], filename: string) {
   if (data.length === 0) {
     alert("No data to export");
@@ -44,6 +53,7 @@ export function exportToCSV(data: any[], filename: string) {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 export function exportAlertsToPDF(alerts: Alert[]) {
@@ -120,17 +130,13 @@ export function exportAlertsToPDF(alerts: Alert[]) {
             .map(
               (alert) => `
             <tr>
-              <td>${new Date(alert.timestamp).toLocaleString()}</td>
-              <td>${alert.type}</td>
-              <td class="priority-${alert.priority.toLowerCase()}">${
-                alert.priority
-              }</td>
-              <td>${alert.message}</td>
+              <td>${escapeHtml(new Date(alert.timestamp).toLocaleString())}</td>
+              <td>${escapeHtml(alert.type)}</td>
+              <td class="priority-${escapeHtml(alert.priority.toLowerCase())}">${escapeHtml(alert.priority)}</td>
+              <td>${escapeHtml(alert.message)}</td>
               <td>${
                 alert.position
-                  ? `${alert.position.lat.toFixed(
-                      2
-                    )}°, ${alert.position.lng.toFixed(2)}°`
+                  ? `${alert.position.lat.toFixed(2)}°, ${alert.position.lng.toFixed(2)}°`
                   : "N/A"
               }</td>
             </tr>
@@ -297,9 +303,9 @@ export function exportAnalyticsToPDF(data: {
             .map(
               (ac) => `
             <tr>
-              <td>${ac.callsign}</td>
-              <td>${ac.type}</td>
-              <td>${ac.threatLevel}</td>
+              <td>${escapeHtml(ac.callsign)}</td>
+              <td>${escapeHtml(ac.type)}</td>
+              <td>${escapeHtml(ac.threatLevel)}</td>
               <td>${ac.position.altitude}</td>
               <td>${ac.speed}</td>
             </tr>

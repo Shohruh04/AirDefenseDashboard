@@ -68,6 +68,13 @@ export const useSimulation = create<SimulationState>()(
       const state = get();
       if (state.isRunning) return;
 
+      // Clear any stale intervals to prevent stacking
+      if (simulationInterval) { clearInterval(simulationInterval); simulationInterval = null; }
+      if (alertInterval) { clearInterval(alertInterval); alertInterval = null; }
+      if (analyticsInterval) { clearInterval(analyticsInterval); analyticsInterval = null; }
+      if (missileInterval) { clearInterval(missileInterval); missileInterval = null; }
+      if (missileLaunchInterval) { clearInterval(missileLaunchInterval); missileLaunchInterval = null; }
+
       set({ isRunning: true });
 
       // Generate initial aircraft

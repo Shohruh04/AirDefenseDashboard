@@ -1,200 +1,54 @@
-import React, { useEffect, useRef } from "react";
+import React, { useMemo } from "react";
+import {
+  LineChart, Line, BarChart, Bar, AreaChart, Area,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Download, FileText } from "lucide-react";
 import { useSimulation } from "../../lib/stores/useSimulation";
 import { exportToCSV, exportAnalyticsToPDF } from "../../lib/exportUtils";
 
-// Chart.js types
-declare global {
-  interface Window {
-    Chart: any;
-  }
-}
-
 const Analytics: React.FC = () => {
   const { analytics, aircraft } = useSimulation();
-  const detectionChartRef = useRef<HTMLCanvasElement>(null);
-  const altitudeChartRef = useRef<HTMLCanvasElement>(null);
-  const systemLoadChartRef = useRef<HTMLCanvasElement>(null);
 
-  const detectionChartInstance = useRef<any>(null);
-  const altitudeChartInstance = useRef<any>(null);
-  const systemLoadChartInstance = useRef<any>(null);
+  // Transform data for recharts
+  const detectionData = useMemo(
+    () => analytics.detectionsPerMinute.map((value, i) => ({ time: `${i + 1}m`, value })),
+    [analytics.detectionsPerMinute]
+  );
 
-  useEffect(() => {
-    const Chart = window.Chart;
-    if (!Chart) return;
+  const altitudeData = useMemo(
+    () => analytics.altitudeDistribution.map((item) => ({
+      altitude: `${item.altitude}m`,
+      count: item.count,
+    })),
+    [analytics.altitudeDistribution]
+  );
 
-    // Detection per minute chart
-    if (detectionChartRef.current && !detectionChartInstance.current) {
-      detectionChartInstance.current = new Chart(detectionChartRef.current, {
-        type: "line",
-        data: {
-          labels: Array.from({ length: 20 }, (_, i) => `${i + 1}m`),
-          datasets: [
-            {
-              label: "Detections per Minute",
-              data: analytics.detectionsPerMinute,
-              borderColor: "#3b82f6",
-              backgroundColor: "rgba(59, 130, 246, 0.1)",
-              fill: true,
-              tension: 0.4,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: false,
-            },
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              grid: {
-                color: "rgba(0, 0, 0, 0.1)",
-              },
-            },
-            x: {
-              grid: {
-                color: "rgba(0, 0, 0, 0.1)",
-              },
-            },
-          },
-        },
-      });
-    }
+  const systemLoadData = useMemo(
+    () => analytics.systemLoad.map((value, i) => ({ time: `${i + 1}m`, value })),
+    [analytics.systemLoad]
+  );
 
-    // Altitude distribution chart
-    if (altitudeChartRef.current && !altitudeChartInstance.current) {
-      altitudeChartInstance.current = new Chart(altitudeChartRef.current, {
-        type: "bar",
-        data: {
-          labels: analytics.altitudeDistribution.map(
-            (item) => `${item.altitude}m`
-          ),
-          datasets: [
-            {
-              label: "Aircraft Count",
-              data: analytics.altitudeDistribution.map((item) => item.count),
-              backgroundColor: [
-                "#ef4444",
-                "#f59e0b",
-                "#10b981",
-                "#3b82f6",
-                "#8b5cf6",
-                "#ec4899",
-              ],
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: false,
-            },
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              grid: {
-                color: "rgba(0, 0, 0, 0.1)",
-              },
-            },
-            x: {
-              grid: {
-                color: "rgba(0, 0, 0, 0.1)",
-              },
-            },
-          },
-        },
-      });
-    }
+  const avgAltitude = useMemo(
+    () => aircraft.length > 0 ? Math.round(aircraft.reduce((sum, ac) => sum + ac.position.altitude, 0) / aircraft.length) : 0,
+    [aircraft]
+  );
 
-    // System load chart
-    if (systemLoadChartRef.current && !systemLoadChartInstance.current) {
-      systemLoadChartInstance.current = new Chart(systemLoadChartRef.current, {
-        type: "line",
-        data: {
-          labels: Array.from({ length: 20 }, (_, i) => `${i + 1}m`),
-          datasets: [
-            {
-              label: "System Load %",
-              data: analytics.systemLoad,
-              borderColor: "#f59e0b",
-              backgroundColor: "rgba(245, 158, 11, 0.1)",
-              fill: true,
-              tension: 0.4,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: false,
-            },
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              max: 100,
-              grid: {
-                color: "rgba(0, 0, 0, 0.1)",
-              },
-            },
-            x: {
-              grid: {
-                color: "rgba(0, 0, 0, 0.1)",
-              },
-            },
-          },
-        },
-      });
-    }
+  const avgSpeed = useMemo(
+    () => aircraft.length > 0 ? Math.round(aircraft.reduce((sum, ac) => sum + ac.speed, 0) / aircraft.length) : 0,
+    [aircraft]
+  );
 
-    return () => {
-      if (detectionChartInstance.current) {
-        detectionChartInstance.current.destroy();
-        detectionChartInstance.current = null;
-      }
-      if (altitudeChartInstance.current) {
-        altitudeChartInstance.current.destroy();
-        altitudeChartInstance.current = null;
-      }
-      if (systemLoadChartInstance.current) {
-        systemLoadChartInstance.current.destroy();
-        systemLoadChartInstance.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    // Update charts when data changes
-    if (detectionChartInstance.current) {
-      detectionChartInstance.current.data.datasets[0].data =
-        analytics.detectionsPerMinute;
-      detectionChartInstance.current.update();
-    }
-
-    if (altitudeChartInstance.current) {
-      altitudeChartInstance.current.data.datasets[0].data =
-        analytics.altitudeDistribution.map((item) => item.count);
-      altitudeChartInstance.current.update();
-    }
-
-    if (systemLoadChartInstance.current) {
-      systemLoadChartInstance.current.data.datasets[0].data =
-        analytics.systemLoad;
-      systemLoadChartInstance.current.update();
-    }
-  }, [analytics]);
+  const typeDistribution = useMemo(() => {
+    const types = ["Commercial", "Military", "Private", "Drone", "Unknown"] as const;
+    return types.map((type) => {
+      const count = aircraft.filter((ac) => ac.type === type).length;
+      const percentage = aircraft.length > 0 ? (count / aircraft.length) * 100 : 0;
+      return { type, count, percentage };
+    });
+  }, [aircraft]);
 
   const handleExportCSV = () => {
     const exportData = [
@@ -231,29 +85,15 @@ const Analytics: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 flex justify-between items-start">
           <div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">
-              Analytics Dashboard
-            </h2>
-            <p className="text-muted-foreground">
-              Performance metrics and tracking statistics
-            </p>
+            <h2 className="text-2xl font-bold text-foreground mb-2">Analytics Dashboard</h2>
+            <p className="text-muted-foreground">Performance metrics and tracking statistics</p>
           </div>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportCSV}
-              className="flex items-center gap-2"
-            >
+            <Button variant="outline" size="sm" onClick={handleExportCSV} className="flex items-center gap-2">
               <Download className="h-4 w-4" />
               Export CSV
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportPDF}
-              className="flex items-center gap-2"
-            >
+            <Button variant="outline" size="sm" onClick={handleExportPDF} className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Export PDF
             </Button>
@@ -266,32 +106,20 @@ const Analytics: React.FC = () => {
             <CardContent className="p-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">
-                  {
-                    analytics.detectionsPerMinute[
-                      analytics.detectionsPerMinute.length - 1
-                    ]
-                  }
+                  {analytics.detectionsPerMinute[analytics.detectionsPerMinute.length - 1]}
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Current Detections/min
-                </p>
+                <p className="text-sm text-muted-foreground">Current Detections/min</p>
               </div>
             </CardContent>
           </Card>
-
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {aircraft.reduce((sum, ac) => sum + ac.position.altitude, 0) /
-                    aircraft.length || 0}
-                  m
-                </div>
+                <div className="text-2xl font-bold text-green-600">{avgAltitude}m</div>
                 <p className="text-sm text-muted-foreground">Avg Altitude</p>
               </div>
             </CardContent>
           </Card>
-
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
@@ -302,17 +130,11 @@ const Analytics: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">
-                  {aircraft.reduce((sum, ac) => sum + ac.speed, 0) /
-                    aircraft.length || 0}
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Avg Speed (km/h)
-                </p>
+                <div className="text-2xl font-bold text-purple-600">{avgSpeed}</div>
+                <p className="text-sm text-muted-foreground">Avg Speed (km/h)</p>
               </div>
             </CardContent>
           </Card>
@@ -325,8 +147,18 @@ const Analytics: React.FC = () => {
               <CardTitle>Aircraft Detections per Minute</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-64 relative">
-                <canvas ref={detectionChartRef} className="absolute inset-0" />
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={detectionData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="time" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <Tooltip
+                      contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, color: "hsl(var(--foreground))" }}
+                    />
+                    <Area type="monotone" dataKey="value" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.15} strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
@@ -336,8 +168,18 @@ const Analytics: React.FC = () => {
               <CardTitle>Altitude Distribution</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-64 relative">
-                <canvas ref={altitudeChartRef} className="absolute inset-0" />
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={altitudeData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="altitude" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <Tooltip
+                      contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, color: "hsl(var(--foreground))" }}
+                    />
+                    <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
@@ -347,8 +189,18 @@ const Analytics: React.FC = () => {
               <CardTitle>System Load Over Time</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-64 relative">
-                <canvas ref={systemLoadChartRef} className="absolute inset-0" />
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={systemLoadData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="time" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <YAxis domain={[0, 100]} stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <Tooltip
+                      contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, color: "hsl(var(--foreground))" }}
+                    />
+                    <Line type="monotone" dataKey="value" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
@@ -362,32 +214,17 @@ const Analytics: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {["Commercial", "Military", "Private", "Unknown"].map(
-                  (type) => {
-                    const count = aircraft.filter(
-                      (ac) => ac.type === type
-                    ).length;
-                    const percentage =
-                      aircraft.length > 0 ? (count / aircraft.length) * 100 : 0;
-                    return (
-                      <div
-                        key={type}
-                        className="flex justify-between items-center"
-                      >
-                        <span className="text-sm">{type}</span>
-                        <div className="flex items-center gap-2">
-                          <div className="w-20 h-2 bg-muted rounded-full">
-                            <div
-                              className="h-full bg-primary rounded-full"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                          <span className="text-sm font-mono w-8">{count}</span>
-                        </div>
+                {typeDistribution.map(({ type, count, percentage }) => (
+                  <div key={type} className="flex justify-between items-center">
+                    <span className="text-sm">{type}</span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-20 h-2 bg-muted rounded-full">
+                        <div className="h-full bg-primary rounded-full" style={{ width: `${percentage}%` }} />
                       </div>
-                    );
-                  }
-                )}
+                      <span className="text-sm font-mono w-8">{count}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>

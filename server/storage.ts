@@ -10,7 +10,7 @@ export interface SimulationAircraft {
   };
   speed: number;
   heading: number;
-  type: "Commercial" | "Military" | "Private" | "Unknown";
+  type: "Commercial" | "Military" | "Private" | "Drone" | "Unknown";
   callsign: string;
   lastUpdate: number;
   threatLevel: "FRIENDLY" | "NEUTRAL" | "SUSPECT" | "HOSTILE";
@@ -85,6 +85,7 @@ export interface IStorage {
   addMissile(missile: SimulationMissile): void;
   updateMissile(id: string, updates: Partial<SimulationMissile>): void;
   removeMissile(id: string): void;
+  cleanupInactiveMissiles(maxAgeMs?: number): void;
 
   // System status methods
   getSystemStatus(): SystemStatus;
@@ -134,13 +135,20 @@ export class MemStorage implements IStorage {
   }
 
   private generateInitialAircraft(count: number): SimulationAircraft[] {
-    const types: SimulationAircraft["type"][] = ["Commercial", "Military", "Private", "Unknown"];
-    const prefixes = ["AIR", "SKY", "FLT", "UAV", "MIL", "PVT"];
+    const types: SimulationAircraft["type"][] = ["Commercial", "Military", "Private", "Drone", "Unknown"];
+    const prefixes: Record<SimulationAircraft["type"], string[]> = {
+      Commercial: ["AIR", "SKY", "FLT"],
+      Military: ["MIL", "AFB", "JET"],
+      Private: ["PVT", "SKY", "FLT"],
+      Drone: ["UAV", "DRN", "RPA"],
+      Unknown: ["UNK", "UFO", "IDK"],
+    };
     const aircraft: SimulationAircraft[] = [];
 
     for (let i = 0; i < count; i++) {
       const type = types[Math.floor(Math.random() * types.length)];
-      const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+      const typePrefixes = prefixes[type];
+      const prefix = typePrefixes[Math.floor(Math.random() * typePrefixes.length)];
       const number = Math.floor(Math.random() * 899) + 100;
 
       let threatLevel: SimulationAircraft["threatLevel"];
@@ -150,20 +158,31 @@ export class MemStorage implements IStorage {
         threatLevel = random < 0.9 ? "FRIENDLY" : "NEUTRAL";
       } else if (type === "Military") {
         threatLevel = random < 0.5 ? "FRIENDLY" : random < 0.8 ? "NEUTRAL" : "SUSPECT";
+      } else if (type === "Drone") {
+        threatLevel = random < 0.3 ? "NEUTRAL" : random < 0.7 ? "SUSPECT" : "HOSTILE";
       } else if (type === "Unknown") {
         threatLevel = random < 0.3 ? "NEUTRAL" : random < 0.7 ? "SUSPECT" : "HOSTILE";
       } else {
         threatLevel = random < 0.8 ? "FRIENDLY" : "NEUTRAL";
       }
 
+      // Drones have lower altitude and slower speed
+      const isDrone = type === "Drone";
+      const altitude = isDrone
+        ? Math.floor(Math.random() * 3000) + 100
+        : Math.floor(Math.random() * 12000) + 1000;
+      const speed = isDrone
+        ? Math.floor(Math.random() * 150) + 50
+        : Math.floor(Math.random() * 600) + 200;
+
       aircraft.push({
         id: `AC${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
         position: {
           lat: Math.random() * 35 + 35,
           lng: Math.random() * 50 - 10,
-          altitude: Math.floor(Math.random() * 12000) + 1000,
+          altitude,
         },
-        speed: Math.floor(Math.random() * 600) + 200,
+        speed,
         heading: Math.floor(Math.random() * 360),
         type,
         callsign: `${prefix}${number}`,
@@ -258,6 +277,15 @@ export class MemStorage implements IStorage {
 
   removeMissile(id: string): void {
     this.missiles.delete(id);
+  }
+
+  cleanupInactiveMissiles(maxAgeMs: number = 30000): void {
+    const now = Date.now();
+    this.missiles.forEach((missile, id) => {
+      if (!missile.active && now - missile.launchTime > maxAgeMs) {
+        this.missiles.delete(id);
+      }
+    });
   }
 
   // System status methods

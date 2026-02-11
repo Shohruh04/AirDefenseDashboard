@@ -20,6 +20,9 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
+# Create non-root user
+RUN addgroup -g 1001 nodejs && adduser -S -u 1001 -G nodejs appuser
+
 # Copy package files and install production dependencies only
 COPY package*.json ./
 RUN npm ci --omit=dev
@@ -30,6 +33,9 @@ COPY --from=builder /app/dist ./dist
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=5000
+
+# Switch to non-root user
+USER appuser
 
 # Expose port
 EXPOSE 5000

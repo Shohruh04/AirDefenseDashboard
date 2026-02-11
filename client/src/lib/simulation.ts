@@ -7,7 +7,7 @@ export interface Aircraft {
   };
   speed: number; // km/h
   heading: number; // degrees
-  type: "Commercial" | "Military" | "Private" | "Unknown";
+  type: "Commercial" | "Military" | "Private" | "Drone" | "Unknown";
   callsign: string;
   lastUpdate: number;
   threatLevel: "FRIENDLY" | "NEUTRAL" | "SUSPECT" | "HOSTILE";
@@ -52,6 +52,7 @@ const AIRCRAFT_TYPES = [
   "Commercial",
   "Military",
   "Private",
+  "Drone",
   "Unknown",
 ] as const;
 const CALLSIGN_PREFIXES = ["AIR", "SKY", "FLT", "UAV", "MIL", "PVT"];
@@ -77,6 +78,9 @@ export function generateRandomAircraft(): Aircraft {
   } else if (type === "Military") {
     threatLevel =
       random < 0.5 ? "FRIENDLY" : random < 0.8 ? "NEUTRAL" : "SUSPECT";
+  } else if (type === "Drone") {
+    threatLevel =
+      random < 0.3 ? "NEUTRAL" : random < 0.7 ? "SUSPECT" : "HOSTILE";
   } else if (type === "Unknown") {
     threatLevel =
       random < 0.3 ? "NEUTRAL" : random < 0.7 ? "SUSPECT" : "HOSTILE";
@@ -84,14 +88,20 @@ export function generateRandomAircraft(): Aircraft {
     threatLevel = random < 0.8 ? "FRIENDLY" : "NEUTRAL";
   }
 
+  const isDrone = type === "Drone";
+
   return {
     id,
     position: {
       lat,
       lng,
-      altitude: Math.floor(Math.random() * 12000) + 1000, // 1000-13000m
+      altitude: isDrone
+        ? Math.floor(Math.random() * 3000) + 100
+        : Math.floor(Math.random() * 12000) + 1000,
     },
-    speed: Math.floor(Math.random() * 600) + 200, // 200-800 km/h
+    speed: isDrone
+      ? Math.floor(Math.random() * 150) + 50
+      : Math.floor(Math.random() * 600) + 200,
     heading: Math.floor(Math.random() * 360), // 0-359 degrees
     type,
     callsign: `${prefix}${number}`,
@@ -177,6 +187,13 @@ export function generateRandomAlert(): Alert {
   }
 
   return alert;
+}
+
+export function toWorldCoords(lat: number, lng: number, altitude: number): [number, number, number] {
+  const x = (lng - 10) * 2;
+  const z = -(lat - 50) * 2;
+  const y = (altitude / 1000) * 0.15 + 0.5;
+  return [x, y, z];
 }
 
 export function interpolatePosition(
