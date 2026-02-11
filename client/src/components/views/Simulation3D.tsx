@@ -239,10 +239,12 @@ const Simulation3D: React.FC = () => {
             <CardContent className="p-4">
               {/* Header */}
               <div className="flex justify-between items-start mb-3">
-                <div className="flex items-center gap-2">
-                  <Plane className="h-5 w-5" style={{ color: getThreatLevelColor(selectedAircraft.threatLevel) }} />
-                  <span className="font-bold text-lg">{selectedAircraft.callsign}</span>
-                  <span className="text-xs text-muted-foreground">{selectedAircraft.type}</span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Plane className="h-5 w-5" style={{ color: getThreatLevelColor(selectedAircraft.threatLevel) }} />
+                    <span className="font-bold text-lg">{selectedAircraft.callsign}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{selectedAircraft.model}</div>
                 </div>
                 <Button variant="ghost" size="sm" onClick={handleDeselectAircraft} className="h-6 w-6 p-0">
                   <X className="h-4 w-4" />
@@ -402,9 +404,12 @@ const Simulation3D: React.FC = () => {
                 >
                   <span className="font-mono text-muted-foreground w-4">#{index + 1}</span>
                   <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: getThreatLevelColor(target.aircraft.threatLevel) }} />
-                  <span className="font-mono font-bold">{target.aircraft.callsign}</span>
-                  <span className="ml-auto font-mono text-orange-500">{target.engagementScore.toFixed(0)}</span>
-                  <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5" style={{
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-mono font-bold">{target.aircraft.callsign}</span>
+                    <span className="text-[8px] text-muted-foreground truncate">{target.aircraft.model}</span>
+                  </div>
+                  <span className="ml-auto font-mono text-orange-500 shrink-0">{target.engagementScore.toFixed(0)}</span>
+                  <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 shrink-0" style={{
                     borderColor: target.recommendation === "ENGAGE" ? "#ef4444" : target.recommendation === "TRACK" ? "#f59e0b" : "#3b82f6",
                     color: target.recommendation === "ENGAGE" ? "#ef4444" : target.recommendation === "TRACK" ? "#f59e0b" : "#3b82f6",
                   }}>

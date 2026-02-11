@@ -131,9 +131,12 @@ const AircraftMarker: React.FC<{
       <Marker position={position} icon={icon} eventHandlers={{ click: () => onSelect(ac.id) }}>
         <Popup>
           <div style={{ minWidth: 200 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,.2)" }}>
-              <div style={{ width: 12, height: 12, background: color, borderRadius: "50%" }} />
-              <span style={{ fontSize: 16, fontWeight: "bold", color }}>{ac.callsign}</span>
+            <div style={{ marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,.2)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 12, height: 12, background: color, borderRadius: "50%" }} />
+                <span style={{ fontSize: 16, fontWeight: "bold", color }}>{ac.callsign}</span>
+              </div>
+              <div style={{ fontSize: 11, color: "#aaa", marginTop: 2, marginLeft: 20 }}>{ac.model}</div>
             </div>
             <div style={{ display: "grid", gap: 4, fontSize: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -468,8 +471,11 @@ const Map2D: React.FC = () => {
                     <div key={target.aircraft.id} className="flex items-center gap-2 text-xs">
                       <span className="text-gray-500 font-mono w-4">#{i + 1}</span>
                       <div style={{ width: 6, height: 6, borderRadius: "50%", background: threatColor }} />
-                      <span className="text-gray-200 flex-1 truncate">{target.aircraft.callsign}</span>
-                      <span className="text-purple-400 font-mono">{target.engagementScore.toFixed(0)}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-gray-200 truncate">{target.aircraft.callsign}</div>
+                        <div className="text-[9px] text-gray-500 truncate">{target.aircraft.model}</div>
+                      </div>
+                      <span className="text-purple-400 font-mono shrink-0">{target.engagementScore.toFixed(0)}</span>
                     </div>
                   );
                 })}

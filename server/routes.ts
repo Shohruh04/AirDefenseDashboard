@@ -110,7 +110,7 @@ function startServerSimulation() {
           timestamp: Date.now(),
           type: "THREAT",
           priority: "HIGH",
-          message: `Missile ${missile.id} intercepted target`,
+          message: `${missile.designation} intercepted target — confirmed kill`,
           position: missile.targetPosition,
         };
         storage.addAlert(alert);
@@ -161,7 +161,7 @@ function startServerSimulation() {
         timestamp: Date.now(),
         type: "THREAT",
         priority: "HIGH",
-        message: `Missile launched at ${target.callsign}`,
+        message: `${missile.designation} launched at ${target.callsign} (${target.model})`,
         position: target.position,
       };
       storage.addAlert(alert);
@@ -190,21 +190,81 @@ export function stopServerSimulation() {
   storage.stopSimulation();
 }
 
+// Real-world model pools for server-side generation
+const SERVER_MODELS: Record<SimulationAircraft["type"], { model: string; prefix: string }[]> = {
+  Commercial: [
+    { model: "Boeing 737-800", prefix: "DLH" },
+    { model: "Boeing 777-300ER", prefix: "BAW" },
+    { model: "Airbus A320neo", prefix: "AFR" },
+    { model: "Airbus A330-300", prefix: "KLM" },
+    { model: "Boeing 747-8", prefix: "SWR" },
+    { model: "Airbus A380-800", prefix: "UAE" },
+    { model: "Boeing 787-9 Dreamliner", prefix: "SAS" },
+  ],
+  Military: [
+    { model: "F-16C Fighting Falcon", prefix: "VIPER" },
+    { model: "F-35A Lightning II", prefix: "LIGHT" },
+    { model: "Su-35S Flanker-E", prefix: "FLANKER" },
+    { model: "Eurofighter Typhoon", prefix: "TYPHOON" },
+    { model: "F-22 Raptor", prefix: "RAPTOR" },
+    { model: "F-15E Strike Eagle", prefix: "EAGLE" },
+    { model: "Rafale C", prefix: "RAFALE" },
+    { model: "Su-57 Felon", prefix: "FELON" },
+  ],
+  Private: [
+    { model: "Cessna Citation X", prefix: "N" },
+    { model: "Gulfstream G650", prefix: "N" },
+    { model: "Bombardier Global 7500", prefix: "C-G" },
+    { model: "Beechcraft King Air 350", prefix: "D-I" },
+    { model: "Learjet 75 Liberty", prefix: "N" },
+  ],
+  Drone: [
+    { model: "MQ-9 Reaper", prefix: "REAPER" },
+    { model: "RQ-4 Global Hawk", prefix: "HAWK" },
+    { model: "TB2 Bayraktar", prefix: "BAYRAKTAR" },
+    { model: "Shahed-136", prefix: "SHAHED" },
+    { model: "MQ-1C Gray Eagle", prefix: "GEAGLE" },
+    { model: "Orlan-10", prefix: "ORLAN" },
+    { model: "IAI Heron TP", prefix: "HERON" },
+  ],
+  Unknown: [
+    { model: "Unidentified Fixed-Wing", prefix: "UNK" },
+    { model: "Unidentified Rotorcraft", prefix: "UNK" },
+    { model: "Unidentified Low-RCS", prefix: "UNK" },
+  ],
+};
+
+const SERVER_SAM_SYSTEMS = [
+  { designation: "MIM-104 Patriot PAC-3", speed: 5000 },
+  { designation: "S-400 Triumf (40N6E)", speed: 4800 },
+  { designation: "IRIS-T SLM", speed: 3600 },
+  { designation: "NASAMS AIM-120", speed: 4000 },
+  { designation: "Aster 30 SAMP/T", speed: 4200 },
+  { designation: "Buk-M3 (9M317MA)", speed: 3400 },
+];
+
 // Helper functions
 function generateRandomAircraft(): SimulationAircraft {
   const types: SimulationAircraft["type"][] = ["Commercial", "Military", "Private", "Drone", "Unknown"];
-  const prefixes: Record<SimulationAircraft["type"], string[]> = {
-    Commercial: ["AIR", "SKY", "FLT"],
-    Military: ["MIL", "AFB", "JET"],
-    Private: ["PVT", "SKY", "FLT"],
-    Drone: ["UAV", "DRN", "RPA"],
-    Unknown: ["UNK", "UFO", "IDK"],
-  };
-
   const type = types[Math.floor(Math.random() * types.length)];
-  const typePrefixes = prefixes[type];
-  const prefix = typePrefixes[Math.floor(Math.random() * typePrefixes.length)];
-  const number = Math.floor(Math.random() * 899) + 100;
+  const pool = SERVER_MODELS[type];
+  const modelDef = pool[Math.floor(Math.random() * pool.length)];
+
+  let callsign: string;
+  if (type === "Commercial") {
+    callsign = `${modelDef.prefix}${Math.floor(Math.random() * 9000) + 100}`;
+  } else if (type === "Military") {
+    callsign = `${modelDef.prefix}-${String(Math.floor(Math.random() * 30) + 1).padStart(2, "0")}`;
+  } else if (type === "Private") {
+    const suffix = Math.random().toString(36).substr(2, 3).toUpperCase();
+    callsign = modelDef.prefix === "N"
+      ? `N${Math.floor(Math.random() * 900) + 100}${suffix.substring(0, 2)}`
+      : `${modelDef.prefix}${suffix}`;
+  } else if (type === "Drone") {
+    callsign = `${modelDef.prefix}-${String(Math.floor(Math.random() * 20) + 1).padStart(2, "0")}`;
+  } else {
+    callsign = `UNK${Math.floor(Math.random() * 999) + 100}`;
+  }
 
   let threatLevel: SimulationAircraft["threatLevel"];
   const random = Math.random();
@@ -233,7 +293,8 @@ function generateRandomAircraft(): SimulationAircraft {
     speed: isDrone ? Math.floor(Math.random() * 150) + 50 : Math.floor(Math.random() * 600) + 200,
     heading: Math.floor(Math.random() * 360),
     type,
-    callsign: `${prefix}${number}`,
+    model: modelDef.model,
+    callsign,
     lastUpdate: Date.now(),
     threatLevel,
   };
@@ -308,15 +369,17 @@ function generateRandomAlert(): SimulationAlert {
 
 function launchMissileAt(target: SimulationAircraft): SimulationMissile {
   const radarPosition = { lat: 50.0, lng: 10.0, altitude: 0 };
+  const sam = SERVER_SAM_SYSTEMS[Math.floor(Math.random() * SERVER_SAM_SYSTEMS.length)];
 
   return {
     id: `MSL${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+    designation: sam.designation,
     startPosition: radarPosition,
     targetPosition: target.position,
     currentPosition: { ...radarPosition },
     targetId: target.id,
     launchTime: Date.now(),
-    speed: 3600, // Mach 3 approximately
+    speed: sam.speed,
     active: true,
   };
 }
@@ -466,7 +529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       timestamp: Date.now(),
       type: "THREAT",
       priority: "HIGH",
-      message: `Manual missile launch at ${target.callsign}`,
+      message: `${missile.designation} launched at ${target.callsign} (${target.model})`,
       position: target.position,
     };
     storage.addAlert(alert);

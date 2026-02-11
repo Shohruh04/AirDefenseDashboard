@@ -49,6 +49,7 @@ export interface Aircraft {
   speed: number; // km/h
   heading: number; // degrees
   type: "Commercial" | "Military" | "Private" | "Drone" | "Unknown";
+  model: string; // Real-world aircraft model (e.g. "F-16C Fighting Falcon")
   callsign: string;
   lastUpdate: number;
   threatLevel: "FRIENDLY" | "NEUTRAL" | "SUSPECT" | "HOSTILE";
@@ -69,6 +70,7 @@ export interface Alert {
 
 export interface Missile {
   id: string;
+  designation: string; // Real SAM system name (e.g. "MIM-104 Patriot PAC-3")
   startPosition: {
     lat: number;
     lng: number;
@@ -133,6 +135,92 @@ const NORMAL_SPEED_RANGE: Record<Aircraft["type"], { min: number; max: number }>
   Unknown: { min: 200, max: 700 },
 };
 
+// ─── Real-World Aircraft Models ───────────────────────────────────────────
+
+interface AircraftModelDef {
+  model: string;
+  callsignPrefix: string;
+}
+
+const COMMERCIAL_MODELS: AircraftModelDef[] = [
+  { model: "Boeing 737-800", callsignPrefix: "DLH" },
+  { model: "Boeing 777-300ER", callsignPrefix: "BAW" },
+  { model: "Airbus A320neo", callsignPrefix: "AFR" },
+  { model: "Airbus A330-300", callsignPrefix: "KLM" },
+  { model: "Boeing 747-8", callsignPrefix: "SWR" },
+  { model: "Airbus A380-800", callsignPrefix: "UAE" },
+  { model: "Boeing 787-9 Dreamliner", callsignPrefix: "SAS" },
+  { model: "Airbus A350-900", callsignPrefix: "THY" },
+  { model: "Embraer E195-E2", callsignPrefix: "AUA" },
+  { model: "Boeing 767-300ER", callsignPrefix: "DAL" },
+];
+
+const MILITARY_MODELS: AircraftModelDef[] = [
+  { model: "F-16C Fighting Falcon", callsignPrefix: "VIPER" },
+  { model: "F-35A Lightning II", callsignPrefix: "LIGHT" },
+  { model: "Su-35S Flanker-E", callsignPrefix: "FLANKER" },
+  { model: "MiG-29 Fulcrum", callsignPrefix: "FULCRUM" },
+  { model: "Eurofighter Typhoon", callsignPrefix: "TYPHOON" },
+  { model: "F-22 Raptor", callsignPrefix: "RAPTOR" },
+  { model: "Rafale C", callsignPrefix: "RAFALE" },
+  { model: "Su-57 Felon", callsignPrefix: "FELON" },
+  { model: "F-15E Strike Eagle", callsignPrefix: "EAGLE" },
+  { model: "Tornado GR4", callsignPrefix: "TORNADO" },
+  { model: "Su-34 Fullback", callsignPrefix: "FULLBACK" },
+  { model: "JAS 39 Gripen", callsignPrefix: "GRIPEN" },
+];
+
+const PRIVATE_MODELS: AircraftModelDef[] = [
+  { model: "Cessna Citation X", callsignPrefix: "N" },
+  { model: "Gulfstream G650", callsignPrefix: "N" },
+  { model: "Bombardier Global 7500", callsignPrefix: "C-G" },
+  { model: "Beechcraft King Air 350", callsignPrefix: "D-I" },
+  { model: "Learjet 75 Liberty", callsignPrefix: "N" },
+  { model: "Dassault Falcon 8X", callsignPrefix: "F-H" },
+  { model: "Pilatus PC-12", callsignPrefix: "HB-" },
+  { model: "Cessna 172 Skyhawk", callsignPrefix: "N" },
+];
+
+const DRONE_MODELS: AircraftModelDef[] = [
+  { model: "MQ-9 Reaper", callsignPrefix: "REAPER" },
+  { model: "RQ-4 Global Hawk", callsignPrefix: "HAWK" },
+  { model: "TB2 Bayraktar", callsignPrefix: "BAYRAKTAR" },
+  { model: "MQ-1C Gray Eagle", callsignPrefix: "GEAGLE" },
+  { model: "Shahed-136", callsignPrefix: "SHAHED" },
+  { model: "Orlan-10", callsignPrefix: "ORLAN" },
+  { model: "IAI Heron TP", callsignPrefix: "HERON" },
+  { model: "HESA Mohajer-6", callsignPrefix: "MOHAJER" },
+  { model: "Wing Loong II", callsignPrefix: "WLOONG" },
+  { model: "RQ-170 Sentinel", callsignPrefix: "SENTINEL" },
+];
+
+const UNKNOWN_MODELS: AircraftModelDef[] = [
+  { model: "Unidentified Fixed-Wing", callsignPrefix: "UNK" },
+  { model: "Unidentified Rotorcraft", callsignPrefix: "UNK" },
+  { model: "Unidentified Low-RCS", callsignPrefix: "UNK" },
+  { model: "Unidentified High-Speed", callsignPrefix: "UNK" },
+];
+
+const MODEL_POOLS: Record<Aircraft["type"], AircraftModelDef[]> = {
+  Commercial: COMMERCIAL_MODELS,
+  Military: MILITARY_MODELS,
+  Private: PRIVATE_MODELS,
+  Drone: DRONE_MODELS,
+  Unknown: UNKNOWN_MODELS,
+};
+
+// Real-world surface-to-air missile systems
+export const SAM_SYSTEMS = [
+  { designation: "MIM-104 Patriot PAC-3", speed: 5000 },
+  { designation: "S-400 Triumf (40N6E)", speed: 4800 },
+  { designation: "IRIS-T SLM", speed: 3600 },
+  { designation: "NASAMS AIM-120", speed: 4000 },
+  { designation: "Aster 30 SAMP/T", speed: 4200 },
+  { designation: "Buk-M3 (9M317MA)", speed: 3400 },
+  { designation: "SAMP/T Mamba", speed: 4100 },
+  { designation: "David's Sling (Stunner)", speed: 4600 },
+];
+
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 function pickWeightedType(): Aircraft["type"] {
@@ -162,19 +250,50 @@ function angleDifference(a: number, b: number): number {
 
 // ─── Aircraft Generation ───────────────────────────────────────────────────
 
+function pickRandomModel(type: Aircraft["type"]): AircraftModelDef {
+  const pool = MODEL_POOLS[type];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function generateCallsign(type: Aircraft["type"], modelDef: AircraftModelDef): string {
+  switch (type) {
+    case "Commercial": {
+      // Airline ICAO code + 3-4 digit flight number (e.g., DLH482, BAW1179)
+      const num = Math.floor(Math.random() * 9000) + 100;
+      return `${modelDef.callsignPrefix}${num}`;
+    }
+    case "Military": {
+      // Tactical callsign + 2-digit flight (e.g., VIPER-01, RAPTOR-12)
+      const num = String(Math.floor(Math.random() * 30) + 1).padStart(2, "0");
+      return `${modelDef.callsignPrefix}-${num}`;
+    }
+    case "Private": {
+      // Civil registration (e.g., N421GX, D-IABC, HB-FXE)
+      const suffix = Math.random().toString(36).substr(2, 3).toUpperCase();
+      if (modelDef.callsignPrefix === "N") {
+        const num = Math.floor(Math.random() * 900) + 100;
+        return `N${num}${suffix.substring(0, 2)}`;
+      }
+      return `${modelDef.callsignPrefix}${suffix}`;
+    }
+    case "Drone": {
+      // Tactical RPA designator (e.g., REAPER-04, BAYRAKTAR-11)
+      const num = String(Math.floor(Math.random() * 20) + 1).padStart(2, "0");
+      return `${modelDef.callsignPrefix}-${num}`;
+    }
+    case "Unknown":
+    default: {
+      const num = Math.floor(Math.random() * 999) + 100;
+      return `UNK${num}`;
+    }
+  }
+}
+
 export function generateRandomAircraft(): Aircraft {
   const id = `AC${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
   const type = pickWeightedType();
-
-  const prefixMap: Record<Aircraft["type"], string> = {
-    Drone: "UAV",
-    Military: "MIL",
-    Commercial: "AIR",
-    Private: "PVT",
-    Unknown: "UNK",
-  };
-  const prefix = prefixMap[type];
-  const number = Math.floor(Math.random() * 999) + 100;
+  const modelDef = pickRandomModel(type);
+  const callsign = generateCallsign(type, modelDef);
 
   const lat = 44 + Math.random() * 12;
   const lng = 4 + Math.random() * 12;
@@ -196,7 +315,8 @@ export function generateRandomAircraft(): Aircraft {
       : Math.floor(Math.random() * 600) + 200,
     heading: Math.floor(Math.random() * 360),
     type,
-    callsign: `${prefix}${number}`,
+    model: modelDef.model,
+    callsign,
     lastUpdate: Date.now(),
     threatLevel: "NEUTRAL", // temporary — overridden by AI classification on first tick
     aiClassification: {
@@ -218,6 +338,10 @@ export function generateRandomAircraft(): Aircraft {
   aircraft.aiClassification = assessment;
 
   return aircraft;
+}
+
+export function pickRandomSAM(): { designation: string; speed: number } {
+  return SAM_SYSTEMS[Math.floor(Math.random() * SAM_SYSTEMS.length)];
 }
 
 // ─── AI Threat Classification Engine ───────────────────────────────────────
@@ -460,7 +584,7 @@ export function generateSmartAlert(aircraft: Aircraft[]): Alert {
       const conf = ac.aiClassification?.confidenceScore ?? 85;
       return {
         id, timestamp: Date.now(), type: "THREAT", priority: "HIGH",
-        message: `AI classified ${ac.callsign} as HOSTILE (confidence: ${conf.toFixed(1)}%) — ${ac.type} at ${ac.position.altitude.toFixed(0)}m`,
+        message: `AI classified ${ac.callsign} (${ac.model}) as HOSTILE (confidence: ${conf.toFixed(1)}%) — ${ac.position.altitude.toFixed(0)}m`,
         position: { lat: ac.position.lat, lng: ac.position.lng },
       };
     });
@@ -473,7 +597,7 @@ export function generateSmartAlert(aircraft: Aircraft[]): Alert {
         .sort((a, b) => b.weighted - a.weighted)[0];
       return {
         id, timestamp: Date.now(), type: "THREAT", priority: "MEDIUM",
-        message: `AI monitoring ${ac.callsign}: elevated threat score ${ac.aiClassification?.totalScore.toFixed(0) ?? "?"} — ${topFactor?.description ?? "multiple risk factors"}`,
+        message: `AI monitoring ${ac.callsign} (${ac.model}): threat score ${ac.aiClassification?.totalScore.toFixed(0) ?? "?"} — ${topFactor?.description ?? "multiple risk factors"}`,
         position: { lat: ac.position.lat, lng: ac.position.lng },
       };
     });
@@ -486,7 +610,7 @@ export function generateSmartAlert(aircraft: Aircraft[]): Alert {
       const ac = noIff[Math.floor(Math.random() * noIff.length)];
       return {
         id, timestamp: Date.now(), type: "DETECTION", priority: "MEDIUM",
-        message: `AI alert: No IFF response from ${ac.callsign} (${ac.type}) — threat assessment in progress`,
+        message: `AI alert: No IFF response from ${ac.callsign} — ${ac.model} — threat assessment in progress`,
         position: { lat: ac.position.lat, lng: ac.position.lng },
       };
     });
@@ -503,7 +627,7 @@ export function generateSmartAlert(aircraft: Aircraft[]): Alert {
       const dist = calculateDistance(ac.position, RADAR_BASE);
       return {
         id, timestamp: Date.now(), type: "DETECTION", priority: dist < 80 ? "HIGH" : "MEDIUM",
-        message: `AI tracking: ${ac.callsign} at ${dist.toFixed(0)}km from base perimeter — ${ac.threatLevel} classification active`,
+        message: `AI tracking: ${ac.callsign} (${ac.model}) at ${dist.toFixed(0)}km — ${ac.threatLevel}`,
         position: { lat: ac.position.lat, lng: ac.position.lng },
       };
     });
@@ -516,7 +640,7 @@ export function generateSmartAlert(aircraft: Aircraft[]): Alert {
       const ac = anomalous[Math.floor(Math.random() * anomalous.length)];
       return {
         id, timestamp: Date.now(), type: "THREAT", priority: "MEDIUM",
-        message: `AI anomaly detected: ${ac.callsign} deviated from predicted flight path (anomaly score: ${ac.aiClassification?.anomalyScore.toFixed(0) ?? 0}%)`,
+        message: `AI anomaly: ${ac.callsign} (${ac.model}) deviated from predicted path — anomaly score: ${ac.aiClassification?.anomalyScore.toFixed(0) ?? 0}%`,
         position: { lat: ac.position.lat, lng: ac.position.lng },
       };
     });

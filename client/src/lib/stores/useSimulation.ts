@@ -6,6 +6,7 @@ import {
   classifyAircraftThreat,
   detectAnomaly,
   buildPriorityQueue,
+  pickRandomSAM,
   type Aircraft,
   type Alert,
   type Missile,
@@ -279,7 +280,7 @@ export const useSimulation = create<SimulationState>()(
             timestamp: Date.now(),
             type: 'SYSTEM',
             priority: 'HIGH',
-            message: `AI targeting: engaged ${topTarget.aircraft.callsign} (priority: ${topTarget.engagementScore.toFixed(0)}, ETA: ${topTarget.estimatedTimeToImpact < 99999 ? topTarget.estimatedTimeToImpact + 's' : 'N/A'})`,
+            message: `AI targeting: engaged ${topTarget.aircraft.callsign} (${topTarget.aircraft.model}) — priority: ${topTarget.engagementScore.toFixed(0)}, ETA: ${topTarget.estimatedTimeToImpact < 99999 ? topTarget.estimatedTimeToImpact + 's' : 'N/A'}`,
             position: { lat: topTarget.aircraft.position.lat, lng: topTarget.aircraft.position.lng },
           });
         }
@@ -352,15 +353,17 @@ export const useSimulation = create<SimulationState>()(
       if (state.systemStatus.missileReady <= 0) return;
 
       const radarPosition = { lat: 50.0, lng: 10.0, altitude: 0 };
+      const sam = pickRandomSAM();
 
       const missile: Missile = {
         id: `MSL${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+        designation: sam.designation,
         startPosition: { ...radarPosition },
         targetPosition: { ...target.position },
         currentPosition: { ...radarPosition },
         targetId,
         launchTime: Date.now(),
-        speed: 3000,
+        speed: sam.speed,
         active: true
       };
 
@@ -376,7 +379,7 @@ export const useSimulation = create<SimulationState>()(
         id: `ALT${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
         timestamp: Date.now(),
         type: 'SYSTEM',
-        message: `AI interceptor launched at ${target.callsign} — confidence: ${target.aiClassification?.confidenceScore?.toFixed(1) ?? '?'}%`,
+        message: `${sam.designation} launched at ${target.callsign} (${target.model}) — confidence: ${target.aiClassification?.confidenceScore?.toFixed(1) ?? '?'}%`,
         priority: 'HIGH',
         position: { lat: radarPosition.lat, lng: radarPosition.lng }
       };
@@ -411,7 +414,7 @@ export const useSimulation = create<SimulationState>()(
               timestamp: Date.now(),
               type: 'THREAT',
               priority: 'HIGH',
-              message: `AI confirmed: ${target.callsign} neutralized — threat eliminated`,
+              message: `AI confirmed: ${target.callsign} (${target.model}) neutralized by ${missile.designation} — threat eliminated`,
               position: { lat: target.position.lat, lng: target.position.lng },
             });
             // Create explosion at impact point

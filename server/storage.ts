@@ -11,6 +11,7 @@ export interface SimulationAircraft {
   speed: number;
   heading: number;
   type: "Commercial" | "Military" | "Private" | "Drone" | "Unknown";
+  model: string;
   callsign: string;
   lastUpdate: number;
   threatLevel: "FRIENDLY" | "NEUTRAL" | "SUSPECT" | "HOSTILE";
@@ -30,6 +31,7 @@ export interface SimulationAlert {
 
 export interface SimulationMissile {
   id: string;
+  designation: string;
   startPosition: {
     lat: number;
     lng: number;
@@ -134,22 +136,62 @@ export class MemStorage implements IStorage {
     this.systemStatus.aircraftTracked = this.aircraft.size;
   }
 
+  private static readonly MODEL_POOLS: Record<SimulationAircraft["type"], { model: string; prefix: string }[]> = {
+    Commercial: [
+      { model: "Boeing 737-800", prefix: "DLH" },
+      { model: "Boeing 777-300ER", prefix: "BAW" },
+      { model: "Airbus A320neo", prefix: "AFR" },
+      { model: "Airbus A330-300", prefix: "KLM" },
+      { model: "Boeing 787-9 Dreamliner", prefix: "SAS" },
+    ],
+    Military: [
+      { model: "F-16C Fighting Falcon", prefix: "VIPER" },
+      { model: "F-35A Lightning II", prefix: "LIGHT" },
+      { model: "Eurofighter Typhoon", prefix: "TYPHOON" },
+      { model: "F-22 Raptor", prefix: "RAPTOR" },
+      { model: "F-15E Strike Eagle", prefix: "EAGLE" },
+    ],
+    Private: [
+      { model: "Cessna Citation X", prefix: "N" },
+      { model: "Gulfstream G650", prefix: "N" },
+      { model: "Bombardier Global 7500", prefix: "C-G" },
+    ],
+    Drone: [
+      { model: "MQ-9 Reaper", prefix: "REAPER" },
+      { model: "TB2 Bayraktar", prefix: "BAYRAKTAR" },
+      { model: "Shahed-136", prefix: "SHAHED" },
+      { model: "RQ-4 Global Hawk", prefix: "HAWK" },
+    ],
+    Unknown: [
+      { model: "Unidentified Fixed-Wing", prefix: "UNK" },
+      { model: "Unidentified Low-RCS", prefix: "UNK" },
+    ],
+  };
+
   private generateInitialAircraft(count: number): SimulationAircraft[] {
     const types: SimulationAircraft["type"][] = ["Commercial", "Military", "Private", "Drone", "Unknown"];
-    const prefixes: Record<SimulationAircraft["type"], string[]> = {
-      Commercial: ["AIR", "SKY", "FLT"],
-      Military: ["MIL", "AFB", "JET"],
-      Private: ["PVT", "SKY", "FLT"],
-      Drone: ["UAV", "DRN", "RPA"],
-      Unknown: ["UNK", "UFO", "IDK"],
-    };
     const aircraft: SimulationAircraft[] = [];
 
     for (let i = 0; i < count; i++) {
       const type = types[Math.floor(Math.random() * types.length)];
-      const typePrefixes = prefixes[type];
-      const prefix = typePrefixes[Math.floor(Math.random() * typePrefixes.length)];
-      const number = Math.floor(Math.random() * 899) + 100;
+      const pool = MemStorage.MODEL_POOLS[type];
+      const modelDef = pool[Math.floor(Math.random() * pool.length)];
+
+      let callsign: string;
+      if (type === "Commercial") {
+        callsign = `${modelDef.prefix}${Math.floor(Math.random() * 9000) + 100}`;
+      } else if (type === "Military") {
+        callsign = `${modelDef.prefix}-${String(Math.floor(Math.random() * 30) + 1).padStart(2, "0")}`;
+      } else if (type === "Private") {
+        const suffix = Math.random().toString(36).substr(2, 3).toUpperCase();
+        callsign = modelDef.prefix === "N"
+          ? `N${Math.floor(Math.random() * 900) + 100}${suffix.substring(0, 2)}`
+          : `${modelDef.prefix}${suffix}`;
+      } else if (type === "Drone") {
+        callsign = `${modelDef.prefix}-${String(Math.floor(Math.random() * 20) + 1).padStart(2, "0")}`;
+      } else {
+        callsign = `UNK${Math.floor(Math.random() * 999) + 100}`;
+      }
 
       let threatLevel: SimulationAircraft["threatLevel"];
       const random = Math.random();
@@ -166,7 +208,6 @@ export class MemStorage implements IStorage {
         threatLevel = random < 0.8 ? "FRIENDLY" : "NEUTRAL";
       }
 
-      // Drones have lower altitude and slower speed
       const isDrone = type === "Drone";
       const altitude = isDrone
         ? Math.floor(Math.random() * 3000) + 100
@@ -185,7 +226,8 @@ export class MemStorage implements IStorage {
         speed,
         heading: Math.floor(Math.random() * 360),
         type,
-        callsign: `${prefix}${number}`,
+        model: modelDef.model,
+        callsign,
         lastUpdate: Date.now(),
         threatLevel,
       });
