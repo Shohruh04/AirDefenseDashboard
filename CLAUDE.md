@@ -16,7 +16,7 @@ npm run check        # TypeScript type-check only (tsc --noEmit)
 npm run db:push      # Push Drizzle schema to PostgreSQL
 ```
 
-Requires `DATABASE_URL` env var — see `.env.example`. Docker Compose available via `docker-compose.yml` for local PostgreSQL.
+Requires `DATABASE_URL` env var (PostgreSQL connection string). Optional: `OPENSKY_CLIENT_ID` + `OPENSKY_CLIENT_SECRET` for authenticated OpenSky API access. Docker Compose available via `docker-compose.yml` for local PostgreSQL.
 
 No test runner, linter, or CI pipeline is configured.
 
@@ -57,6 +57,7 @@ All stores use `subscribeWithSelector` middleware. Key stores:
 | `usePlayback` | `client/src/lib/stores/usePlayback.ts` | Time-travel: pause/rewind with snapshot history (max 100). No UI controls wired up yet. |
 | `useSettings` | `client/src/lib/stores/useSettings.ts` | Persisted to localStorage (`air-defense-settings`). Controls day/night, refresh rate, view mode. |
 | `useAudio` | `client/src/lib/stores/useAudio.tsx` | Sound effects via HTMLAudioElement (not Howler.js despite the dependency). Starts muted. |
+| `useLiveAircraft` | `client/src/lib/stores/useLiveAircraft.ts` | Polls `/api/live/aircraft` every 5s for real ADS-B data. Maps to same `Aircraft` type as simulation. |
 
 ### Dual Simulation Architecture
 
@@ -95,10 +96,33 @@ All routes prefixed with `/api`. Key endpoints:
 - `GET /api/system/status`
 - `POST /api/simulation/start` / `POST /api/simulation/stop` / `GET /api/simulation/status`
 - `GET /api/health`
+- `GET /api/live/aircraft?lat=&lng=&radius=&provider=` (real ADS-B data)
+- `GET /api/live/military` (military aircraft via airplanes.live)
 
 WebSocket at `/ws` handles: `start_simulation`, `stop_simulation`, `launch_missile`, `get_state`.
 
 Broadcast events: `aircraft_update`, `new_alert`, `missile_launch`, `missile_impact`, `missiles_update`, `system_status`, `simulation_started`, `simulation_stopped`, `alerts_cleared`.
+
+### Live Aircraft Tracking
+
+`server/liveAircraft.ts` provides real ADS-B data via two providers:
+- **airplanes.live** (default) — free, no auth, `GET /api/live/aircraft?lat=&lng=&radius=&provider=airplanes-live`
+- **OpenSky Network** — optional auth via `OPENSKY_CLIENT_ID`/`OPENSKY_CLIENT_SECRET`, `provider=opensky`
+- **Military endpoint** — `GET /api/live/military` (airplanes.live only)
+
+All responses are normalized to the same `Aircraft` shape. Server-side caching with 3s TTL to respect rate limits. Live aircraft IDs are prefixed with `LIVE_`.
+
+### Country Configuration System
+
+`shared/countryConfigs.ts` defines per-country settings (radar center, map bounds, spawn bounds, defense systems, aircraft models, air bases). Currently configured: **Germany** (default) and **Uzbekistan**. Selected via `country` setting in `useSettings`. Used by both simulation and live tracking to determine coordinates and available systems.
+
+### Data Source Modes
+
+`useSettings` has a `dataSource` field: `simulation` (client-generated), `live` (real ADS-B), or `hybrid` (both). Also configurable: `liveApiProvider` (`airplanes-live` or `opensky`).
+
+### AI Classification Settings
+
+`useSettings` stores `aiEnabled`, `anomalySensitivity` (1-10), and `predictionHorizon` (10-120s) for the classification engine in `client/src/lib/simulation.ts`.
 
 ### Storage Layer
 
