@@ -4,6 +4,10 @@ import { WebSocketServer, WebSocket } from "ws";
 import { z } from "zod";
 import { storage, type SimulationAircraft, type SimulationMissile, type SimulationAlert } from "./storage";
 import { liveAircraftRouter } from "./liveAircraft";
+import { weatherRouter } from "./weatherApi";
+import { disasterRouter } from "./disasterApi";
+import { intelligenceRouter } from "./intelligenceApi";
+import { convergenceRouter } from "./convergenceEngine";
 import { getCountryConfig, getModelPools, getMissileSystems, DEFAULT_COUNTRY } from "@shared/countryConfigs";
 
 // Zod schemas for WebSocket message validation
@@ -436,6 +440,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount live aircraft API proxy
   app.use("/api/live", liveAircraftRouter);
+
+  // Mount intelligence data APIs
+  app.use("/api/weather", weatherRouter);
+  app.use("/api/disasters", disasterRouter);
+  app.use("/api/intelligence", intelligenceRouter);
+  app.use("/api/convergence", convergenceRouter);
 
   // REST API Routes
 

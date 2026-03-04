@@ -121,6 +121,12 @@ canvas {
   border: none !important;
 }
 
+/* Military base marker styles */
+.military-base-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
 /* Pulse animation for target indicators */
 @keyframes pulse-ring {
   0% {

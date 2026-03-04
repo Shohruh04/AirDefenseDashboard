@@ -6,6 +6,7 @@ import Simulation3D from "./views/Simulation3D";
 import SystemStatus from "./views/SystemStatus";
 import Analytics from "./views/Analytics";
 import AlertsLog from "./views/AlertsLog";
+import Intelligence from "./views/Intelligence";
 import Settings from "./views/Settings";
 import About from "./views/About";
 
@@ -15,6 +16,7 @@ export type TabType =
   | "SYSTEM_STATUS"
   | "ANALYTICS"
   | "ALERTS"
+  | "INTELLIGENCE"
   | "SETTINGS"
   | "ABOUT";
 
@@ -34,6 +36,8 @@ const Layout: React.FC = () => {
         return <Analytics />;
       case "ALERTS":
         return <AlertsLog />;
+      case "INTELLIGENCE":
+        return <Intelligence />;
       case "SETTINGS":
         return <Settings />;
       case "ABOUT":

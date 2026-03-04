@@ -12,11 +12,25 @@ import {
   CheckCircle,
   Clock,
   Brain,
+  Cloud,
+  Globe,
+  Target,
+  Radio,
 } from "lucide-react";
 import { useSimulation } from "../../lib/stores/useSimulation";
+import { useWeather } from "../../lib/stores/useWeather";
+import { useDisasters } from "../../lib/stores/useDisasters";
+import { useIntelligence } from "../../lib/stores/useIntelligence";
+import { useConvergence } from "../../lib/stores/useConvergence";
+import { useSettings } from "../../lib/stores/useSettings";
 
 const SystemStatus: React.FC = () => {
   const { systemStatus, aircraft, alerts, isRunning, aiMetrics } = useSimulation();
+  const { current: weather, lastFetch: weatherLastFetch, error: weatherError } = useWeather();
+  const { lastFetch: disasterLastFetch, error: disasterError, earthquakes, naturalEvents } = useDisasters();
+  const { lastFetch: intelLastFetch, error: intelError, events: gdeltEvents } = useIntelligence();
+  const { lastFetch: convergenceLastFetch, error: convergenceError, zones } = useConvergence();
+  const { weatherEnabled, disastersEnabled, intelligenceEnabled, convergenceEnabled } = useSettings();
 
   const recentAlerts = alerts.slice(0, 5);
   const criticalAlerts = alerts.filter(
@@ -273,6 +287,77 @@ const SystemStatus: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Data Source Freshness */}
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Radio className="h-5 w-5 text-blue-500" />
+              Data Source Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <DataSourceStatus name="Simulation" lastFetch={Date.now()} enabled={isRunning} error={null} icon={<Activity className="h-4 w-4" />} />
+              <DataSourceStatus name="Weather (Open-Meteo)" lastFetch={weatherLastFetch} enabled={weatherEnabled} error={weatherError} icon={<Cloud className="h-4 w-4" />} />
+              <DataSourceStatus name="Earthquakes (USGS)" lastFetch={disasterLastFetch} enabled={disastersEnabled} error={disasterError} icon={<AlertTriangle className="h-4 w-4" />} />
+              <DataSourceStatus name="Events (NASA EONET)" lastFetch={disasterLastFetch} enabled={disastersEnabled} error={disasterError} icon={<AlertTriangle className="h-4 w-4" />} />
+              <DataSourceStatus name="Intelligence (GDELT)" lastFetch={intelLastFetch} enabled={intelligenceEnabled} error={intelError} icon={<Globe className="h-4 w-4" />} />
+              <DataSourceStatus name="Convergence Engine" lastFetch={convergenceLastFetch} enabled={convergenceEnabled} error={convergenceError} icon={<Target className="h-4 w-4" />} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Weather Conditions */}
+        {weatherEnabled && weather && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Cloud className="h-5 w-5 text-cyan-500" />
+                Weather Conditions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Conditions</p>
+                  <p className="text-sm font-semibold">{weather.weatherDescription}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Temperature</p>
+                  <p className="text-sm font-semibold">{weather.temperature}°C</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Wind</p>
+                  <p className="text-sm font-semibold">{Math.round(weather.windSpeed)} km/h @ {Math.round(weather.windDirection)}°</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Visibility</p>
+                  <p className="text-sm font-semibold">{(weather.visibility / 1000).toFixed(1)} km</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Radar Effectiveness</p>
+                  <p className={`text-sm font-semibold ${
+                    weather.operationalImpact.radarEffectiveness >= 80 ? "text-green-600" :
+                    weather.operationalImpact.radarEffectiveness >= 60 ? "text-yellow-600" : "text-red-600"
+                  }`}>{weather.operationalImpact.radarEffectiveness}%</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Flight Conditions</p>
+                  <p className="text-sm font-semibold">{weather.operationalImpact.flightConditions}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Missile Guidance</p>
+                  <p className="text-sm font-semibold">{weather.operationalImpact.missileGuidance}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Cloud Cover</p>
+                  <p className="text-sm font-semibold">{weather.cloudCover}%</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Simulation Status */}
         <Card className="mt-6">
           <CardHeader>
@@ -304,6 +389,51 @@ const SystemStatus: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+      </div>
+    </div>
+  );
+};
+
+// Data source freshness indicator
+const DataSourceStatus: React.FC<{
+  name: string;
+  lastFetch: number;
+  enabled: boolean;
+  error: string | null;
+  icon: React.ReactNode;
+}> = ({ name, lastFetch, enabled, error, icon }) => {
+  if (!enabled) {
+    return (
+      <div className="flex items-center gap-2 p-2 rounded-md bg-muted/30">
+        <div className="w-2 h-2 rounded-full bg-gray-400" />
+        <span className="text-muted-foreground">{icon}</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium truncate">{name}</p>
+          <p className="text-[10px] text-muted-foreground">Disabled</p>
+        </div>
+      </div>
+    );
+  }
+
+  const age = lastFetch > 0 ? Date.now() - lastFetch : Infinity;
+  const isFresh = age < 30000; // <30s
+  const isStale = age >= 30000 && age < 300000; // 30s-5min
+  const isOld = age >= 300000; // >5min
+
+  const statusColor = error ? "bg-red-500" : isFresh ? "bg-green-500" : isStale ? "bg-yellow-500" : "bg-red-500";
+  const statusText = error ? "Error" : isFresh ? "Fresh" : isStale ? "Stale" : lastFetch === 0 ? "Pending" : "Old";
+
+  const ageText = lastFetch > 0
+    ? age < 60000 ? `${Math.round(age / 1000)}s ago` : `${Math.round(age / 60000)}m ago`
+    : "—";
+
+  return (
+    <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
+      <div className={`w-2 h-2 rounded-full ${statusColor} ${isFresh ? "animate-pulse" : ""}`} />
+      <span className="text-muted-foreground">{icon}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium truncate">{name}</p>
+        <p className="text-[10px] text-muted-foreground">{statusText} · {ageText}</p>
       </div>
     </div>
   );

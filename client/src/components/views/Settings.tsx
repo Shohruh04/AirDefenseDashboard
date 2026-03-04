@@ -26,6 +26,10 @@ import {
   Brain,
   Globe,
   Radio,
+  Cloud,
+  AlertTriangle,
+  Target,
+  Zap,
 } from "lucide-react";
 import { useSettings } from "../../lib/stores/useSettings";
 import { useSimulation } from "../../lib/stores/useSimulation";
@@ -44,6 +48,12 @@ const Settings: React.FC = () => {
     country,
     dataSource,
     liveApiProvider,
+    weatherEnabled,
+    disastersEnabled,
+    intelligenceEnabled,
+    convergenceEnabled,
+    demoMode,
+    convergenceSensitivity,
     toggleSimulation,
     setRefreshRate,
     setViewMode,
@@ -54,6 +64,12 @@ const Settings: React.FC = () => {
     setCountry,
     setDataSource,
     setLiveApiProvider,
+    setWeatherEnabled,
+    setDisastersEnabled,
+    setIntelligenceEnabled,
+    setConvergenceEnabled,
+    setDemoMode,
+    setConvergenceSensitivity,
   } = useSettings();
 
   const countryConfig = useMemo(() => getCountryConfig(country), [country]);
@@ -359,6 +375,128 @@ const Settings: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Intelligence Data Sources */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5 text-purple-500" />
+              Intelligence Data Sources
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label className="text-base font-medium flex items-center gap-2">
+                  <Cloud className="h-4 w-4 text-cyan-500" />
+                  Weather Intelligence
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Open-Meteo weather data — radar effectiveness, wind, visibility
+                </p>
+              </div>
+              <Switch checked={weatherEnabled} onCheckedChange={setWeatherEnabled} />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label className="text-base font-medium flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-orange-500" />
+                  Natural Disaster Monitoring
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  USGS earthquakes + NASA EONET fires, storms, volcanoes
+                </p>
+              </div>
+              <Switch checked={disastersEnabled} onCheckedChange={setDisastersEnabled} />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label className="text-base font-medium flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-purple-500" />
+                  Geopolitical Intelligence
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  GDELT conflict data, risk scoring, and event tracking
+                </p>
+              </div>
+              <Switch checked={intelligenceEnabled} onCheckedChange={setIntelligenceEnabled} />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label className="text-base font-medium flex items-center gap-2">
+                  <Target className="h-4 w-4 text-red-500" />
+                  Convergence Detection
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Multi-signal geographic clustering analysis
+                </p>
+              </div>
+              <Switch checked={convergenceEnabled} onCheckedChange={setConvergenceEnabled} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Convergence Detection Settings */}
+        {convergenceEnabled && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-red-500" />
+                Convergence Detection
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label className="text-base font-medium flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-yellow-500" />
+                    Demo Mode
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Lowers detection thresholds for presentations and demos
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Badge variant={demoMode ? "default" : "secondary"} className={demoMode ? "bg-yellow-600" : ""}>
+                    {demoMode ? "Demo" : "Production"}
+                  </Badge>
+                  <Switch checked={demoMode} onCheckedChange={setDemoMode} />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-medium">
+                    Convergence Sensitivity: {convergenceSensitivity}
+                  </Label>
+                  <Badge variant="outline">
+                    {convergenceSensitivity <= 3 ? "Low" : convergenceSensitivity <= 7 ? "Medium" : "High"}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Higher = fewer event types needed to trigger convergence (1-10)
+                </p>
+                <div className="px-2">
+                  <Slider
+                    value={[convergenceSensitivity]}
+                    onValueChange={(v) => setConvergenceSensitivity(v[0])}
+                    max={10}
+                    min={1}
+                    step={1}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                    <span>1 (5 types needed)</span>
+                    <span>10 (1 type needed)</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Display Settings */}
         <Card className="mb-6">

@@ -7,6 +7,7 @@ import {
   Activity,
   BarChart3,
   AlertTriangle,
+  Globe,
   Settings,
   Info,
   ChevronLeft,
@@ -28,6 +29,7 @@ const menuItems = [
   { id: "SYSTEM_STATUS", label: "System Status", icon: Activity },
   { id: "ANALYTICS", label: "Analytics", icon: BarChart3 },
   { id: "ALERTS", label: "Alerts", icon: AlertTriangle },
+  { id: "INTELLIGENCE", label: "Intelligence", icon: Globe },
   { id: "SETTINGS", label: "Settings", icon: Settings },
   { id: "ABOUT", label: "About", icon: Info },
 ] as const;

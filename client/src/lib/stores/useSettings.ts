@@ -13,6 +13,16 @@ interface SettingsState {
   dataSource: 'simulation' | 'live' | 'hybrid';
   liveApiProvider: 'airplanes-live' | 'opensky';
 
+  // Intelligence data sources
+  weatherEnabled: boolean;
+  disastersEnabled: boolean;
+  intelligenceEnabled: boolean;
+  convergenceEnabled: boolean;
+
+  // Convergence detection
+  demoMode: boolean;
+  convergenceSensitivity: number; // 1-10 (maps to minEventTypes: 10=1 type, 1=5 types)
+
   // Actions
   toggleSimulation: () => void;
   setRefreshRate: (rate: number) => void;
@@ -24,6 +34,12 @@ interface SettingsState {
   setCountry: (country: string) => void;
   setDataSource: (source: 'simulation' | 'live' | 'hybrid') => void;
   setLiveApiProvider: (provider: 'airplanes-live' | 'opensky') => void;
+  setWeatherEnabled: (enabled: boolean) => void;
+  setDisastersEnabled: (enabled: boolean) => void;
+  setIntelligenceEnabled: (enabled: boolean) => void;
+  setConvergenceEnabled: (enabled: boolean) => void;
+  setDemoMode: (enabled: boolean) => void;
+  setConvergenceSensitivity: (sensitivity: number) => void;
 }
 
 export const useSettings = create<SettingsState>()(
@@ -39,6 +55,15 @@ export const useSettings = create<SettingsState>()(
       country: 'germany',
       dataSource: 'hybrid',
       liveApiProvider: 'airplanes-live',
+
+      // All enabled by default
+      weatherEnabled: true,
+      disastersEnabled: true,
+      intelligenceEnabled: true,
+      convergenceEnabled: true,
+
+      demoMode: false,
+      convergenceSensitivity: 5,
 
       toggleSimulation: () => set((state) => ({
         isSimulationRunning: !state.isSimulationRunning
@@ -63,6 +88,18 @@ export const useSettings = create<SettingsState>()(
       setDataSource: (source) => set({ dataSource: source }),
 
       setLiveApiProvider: (provider) => set({ liveApiProvider: provider }),
+
+      setWeatherEnabled: (enabled) => set({ weatherEnabled: enabled }),
+
+      setDisastersEnabled: (enabled) => set({ disastersEnabled: enabled }),
+
+      setIntelligenceEnabled: (enabled) => set({ intelligenceEnabled: enabled }),
+
+      setConvergenceEnabled: (enabled) => set({ convergenceEnabled: enabled }),
+
+      setDemoMode: (enabled) => set({ demoMode: enabled }),
+
+      setConvergenceSensitivity: (sensitivity) => set({ convergenceSensitivity: sensitivity }),
     }),
     {
       name: 'air-defense-settings',

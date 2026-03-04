@@ -18,6 +18,7 @@ const tabTitles: Record<TabType, string> = {
   SYSTEM_STATUS: "AI System Status",
   ANALYTICS: "AI Analytics Dashboard",
   ALERTS: "AI Alerts & Events",
+  INTELLIGENCE: "Threat Intelligence",
   SETTINGS: "AI System Settings",
   ABOUT: "About AI Defense",
 };

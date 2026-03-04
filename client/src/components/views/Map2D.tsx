@@ -1,9 +1,13 @@
-import React, { useMemo, useCallback } from "react";
+import React, { useMemo, useCallback, useEffect, useState } from "react";
 import { MapContainer, TileLayer, Circle, Polyline, Marker, Popup, useMap, LayersControl } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useSimulation } from "../../lib/stores/useSimulation";
 import { useSettings } from "../../lib/stores/useSettings";
+import { useWeather } from "../../lib/stores/useWeather";
+import { useDisasters } from "../../lib/stores/useDisasters";
+import { useIntelligence } from "../../lib/stores/useIntelligence";
+import { useConvergence } from "../../lib/stores/useConvergence";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
@@ -11,6 +15,11 @@ import { getThreatLevelColor, getThreatLevelLabel } from "../../lib/simulation";
 import type { Aircraft, Missile, Explosion } from "../../lib/simulation";
 import { Play, Square, Radar, Plane, Zap, Brain } from "lucide-react";
 import { getCountryConfig } from "@shared/countryConfigs";
+import { MILITARY_BASES_EXPANDED, OPERATOR_COLORS, type MilitaryBase } from "@shared/militaryBases";
+import LayerControl, { type LayerVisibility } from "../map/LayerControl";
+import WeatherOverlay from "../map/WeatherOverlay";
+import DisasterMarkers from "../map/DisasterMarkers";
+import ConflictZones from "../map/ConflictZones";
 
 // Radar range ring definitions
 const RADAR_RANGES = [
@@ -68,23 +77,29 @@ const AIRCRAFT_CONFIG: Record<string, {
     label: "CIV",
   },
   Drone: {
-    size: 26,
+    size: 28,
     viewBox: "0 0 64 64",
-    // MQ-9 Reaper style: long slim fuselage, high-aspect straight wings, V-tail
-    fuselage: `M32 4 C31 4 30.5 5 30.5 7 L30.5 12 L31 18 L31 46 L30.5 50 L30 52
-               L31 54 L32 56 L33 54 L34 52 L33.5 50 L33 46 L33 18 L33 12 L33.5 7
-               C33.5 5 33 4 32 4 Z`,
-    // Long straight wings (high aspect ratio like a glider)
-    wings: `M31 20 L28 20.5 L18 22 L6 24 L2 25 L1.5 26.5 L2.5 27 L6 26 L18 24.5
-            L28 23 L31 22.5 Z
-            M33 20 L36 20.5 L46 22 L58 24 L62 25 L62.5 26.5 L61.5 27 L58 26 L46 24.5
-            L36 23 L33 22.5 Z`,
-    // V-tail
-    tail: `M30.5 50 L25 55 L24 56 L24.5 57.5 L26 56.5 L31 52 Z
-           M33.5 50 L39 55 L40 56 L39.5 57.5 L38 56.5 L33 52 Z`,
-    // Sensor ball under nose
-    extras: `M32 10 C30.5 10 30 11 30 12 C30 13 30.5 13.5 32 13.5
-             C33.5 13.5 34 13 34 12 C34 11 33.5 10 32 10 Z`,
+    // MQ-9 Reaper: detailed fuselage with sensor turret, tapered wings, V-tail, pusher prop
+    fuselage: `M32 3 C31 3 30.5 4 30.5 6 L30.5 10 L30 14 L30 18 L30.5 24 L30.5 42
+               L30 46 L29.5 49 L30 51 L31 53 L32 55 L33 53 L34 51 L34.5 49 L34 46
+               L33.5 42 L33.5 24 L34 18 L34 14 L33.5 10 L33.5 6 C33.5 4 33 3 32 3 Z`,
+    // High-aspect tapered wings with hardpoint pylons
+    wings: `M30.5 22 L28 22.5 L20 24 L10 26 L4 27.5 L2 28.5 L1.5 29.5 L2.5 30
+            L4 29.5 L10 28 L20 26 L28 24.5 L30.5 24 Z
+            M33.5 22 L36 22.5 L44 24 L54 26 L60 27.5 L62 28.5 L62.5 29.5 L61.5 30
+            L60 29.5 L54 28 L44 26 L36 24.5 L33.5 24 Z`,
+    // V-tail stabilizers (inverted-V)
+    tail: `M30 47 L24 53 L23 54.5 L23.5 56 L25 55 L30.5 50 Z
+           M34 47 L40 53 L41 54.5 L40.5 56 L39 55 L33.5 50 Z`,
+    // Sensor turret under nose + weapon pylons under wings + rear pusher prop disc
+    extras: `M32 8 C30 8 29 9.5 29 11 C29 12.5 30 13.5 32 13.5 C34 13.5 35 12.5 35 11
+             C35 9.5 34 8 32 8 Z
+             M31.5 10 C31 10 30.5 10.5 30.5 11 C30.5 11.5 31 12 31.5 12
+             C32 12 32.5 11.5 32.5 11 C32.5 10.5 32 10 31.5 10 Z
+             M14 27 L13.5 28.5 L14.5 29.5 L15 28 Z
+             M50 27 L49.5 28.5 L50.5 29.5 L51 28 Z
+             M18 26 L17.5 27.5 L18.5 28.5 L19 27 Z
+             M46 26 L45.5 27.5 L46.5 28.5 L47 27 Z`,
     label: "UAV",
   },
   Private: {
@@ -145,10 +160,20 @@ function createAircraftDivIcon(ac: Aircraft, isSelected: boolean): L.DivIcon {
 
   const hostile = ac.threatLevel === "HOSTILE" ? "animation:hostile-pulse 1s ease-in-out infinite;" : "";
 
-  // Drone: propeller disc animation at wingtips (MQ-9 Reaper has rear pusher prop)
+  // Drone: rear pusher propeller with spinning blades + exhaust glow
   const droneExtras = ac.type === "Drone"
-    ? `<circle cx="32" cy="54" r="5" fill="none" stroke="${color}" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.6">
-         <animateTransform attributeName="transform" type="rotate" from="0 32 54" to="360 32 54" dur="0.3s" repeatCount="indefinite"/>
+    ? `<g opacity="0.7">
+         <line x1="32" y1="51" x2="32" y2="59" stroke="${color}" stroke-width="1.2" stroke-linecap="round">
+           <animateTransform attributeName="transform" type="rotate" from="0 32 55" to="360 32 55" dur="0.15s" repeatCount="indefinite"/>
+         </line>
+         <line x1="28" y1="55" x2="36" y2="55" stroke="${color}" stroke-width="1.2" stroke-linecap="round">
+           <animateTransform attributeName="transform" type="rotate" from="0 32 55" to="360 32 55" dur="0.15s" repeatCount="indefinite"/>
+         </line>
+         <circle cx="32" cy="55" r="1.5" fill="${color}" opacity="0.9"/>
+       </g>
+       <circle cx="32" cy="57" r="3" fill="${color}" opacity="0.15">
+         <animate attributeName="r" values="3;5;3" dur="1s" repeatCount="indefinite"/>
+         <animate attributeName="opacity" values="0.15;0.05;0.15" dur="1s" repeatCount="indefinite"/>
        </circle>`
     : "";
 
@@ -223,6 +248,71 @@ function createMissileDivIcon(rotation: number): L.DivIcon {
   });
 }
 
+// Create military base icon with operator-specific SVG
+function createMilitaryBaseIcon(base: MilitaryBase): L.DivIcon {
+  const op = OPERATOR_COLORS[base.type] || { color: '#888888', label: base.type };
+  const c = op.color;
+  const statusOpacity = base.status === 'active' ? 1 : 0.6;
+  const statusBorder = base.status === 'controversial' ? 'stroke-dasharray="2 1"' : '';
+
+  // Different SVG shapes per operator
+  let iconSvg = '';
+  switch (base.type) {
+    case 'us-nato':
+      // 5-pointed star
+      iconSvg = `<polygon points="10,1 12.5,7 19,7.5 14,12 15.5,19 10,15.5 4.5,19 6,12 1,7.5 7.5,7" fill="${c}" stroke="#fff" stroke-width="0.8" ${statusBorder}/>`;
+      break;
+    case 'russia':
+      // Red star
+      iconSvg = `<polygon points="10,1 12.5,7 19,7.5 14,12 15.5,19 10,15.5 4.5,19 6,12 1,7.5 7.5,7" fill="${c}" stroke="#fca5a5" stroke-width="0.8" ${statusBorder}/>`;
+      break;
+    case 'china':
+      // Star with inner fill
+      iconSvg = `<polygon points="10,2 12,7 18,7.5 13.5,11.5 15,17.5 10,14 5,17.5 6.5,11.5 2,7.5 8,7" fill="${c}" stroke="#fef08a" stroke-width="0.8" ${statusBorder}/>`;
+      break;
+    case 'uk':
+      // Roundel (concentric circles)
+      iconSvg = `<circle cx="10" cy="10" r="8" fill="${c}" stroke="#fff" stroke-width="0.8" ${statusBorder}/><circle cx="10" cy="10" r="5" fill="#1e3a5f"/><circle cx="10" cy="10" r="2.5" fill="#ef4444"/>`;
+      break;
+    case 'france':
+      // Tricolor roundel
+      iconSvg = `<circle cx="10" cy="10" r="8" fill="#3b82f6" stroke="#fff" stroke-width="0.8" ${statusBorder}/><circle cx="10" cy="10" r="5.5" fill="#fff"/><circle cx="10" cy="10" r="3" fill="#ef4444"/>`;
+      break;
+    case 'india':
+      // Ashoka chakra style
+      iconSvg = `<circle cx="10" cy="10" r="8" fill="${c}" stroke="#fff" stroke-width="0.8" ${statusBorder}/><circle cx="10" cy="10" r="4" fill="none" stroke="#fff" stroke-width="1.2"/>`;
+      break;
+    case 'italy':
+      // Green roundel
+      iconSvg = `<circle cx="10" cy="10" r="8" fill="${c}" stroke="#fff" stroke-width="0.8" ${statusBorder}/><circle cx="10" cy="10" r="5" fill="#fff"/><circle cx="10" cy="10" r="2.5" fill="#ef4444"/>`;
+      break;
+    case 'uae':
+      // Crescent
+      iconSvg = `<circle cx="10" cy="10" r="8" fill="${c}" stroke="#fff" stroke-width="0.8" ${statusBorder}/><circle cx="12" cy="10" r="6" fill="#1a1a2e"/>`;
+      break;
+    case 'japan':
+      // Hinomaru
+      iconSvg = `<circle cx="10" cy="10" r="8" fill="#fff" stroke="#ccc" stroke-width="0.6" ${statusBorder}/><circle cx="10" cy="10" r="5" fill="${c}"/>`;
+      break;
+    default:
+      iconSvg = `<rect x="2" y="2" width="16" height="16" rx="2" fill="${c}" stroke="#fff" stroke-width="0.8" ${statusBorder}/>`;
+  }
+
+  const html = `<div style="opacity:${statusOpacity};pointer-events:auto;">
+    <svg width="20" height="20" viewBox="0 0 20 20" style="filter:drop-shadow(0 0 3px ${c}80);cursor:pointer;">
+      ${iconSvg}
+    </svg>
+  </div>`;
+
+  return L.divIcon({
+    className: 'military-base-icon',
+    html,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+    popupAnchor: [0, -10],
+  });
+}
+
 // Radar center icon
 const radarCenterIcon = L.divIcon({
   className: "radar-center-icon",
@@ -291,7 +381,7 @@ const AircraftMarker: React.FC<{
   return (
     <>
       <Marker position={position} icon={icon} eventHandlers={{ click: () => onSelect(ac.id) }}>
-        <Popup>
+        <Popup autoClose={true} closeOnClick={true}>
           <div style={{ minWidth: 200 }}>
             <div style={{ marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,.2)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -481,12 +571,150 @@ function MapResizeHandler() {
   return null;
 }
 
+// Cache military base icons by operator type (only 10 variants needed, not 210)
+const baseIconCache = new Map<string, L.DivIcon>();
+function getCachedBaseIcon(base: MilitaryBase): L.DivIcon {
+  const cacheKey = `${base.type}_${base.status}`;
+  if (baseIconCache.has(cacheKey)) return baseIconCache.get(cacheKey)!;
+  const icon = createMilitaryBaseIcon(base);
+  baseIconCache.set(cacheKey, icon);
+  return icon;
+}
+
+// Viewport-aware military bases renderer — only renders bases in view
+const MilitaryBasesLayer: React.FC<{ visible: boolean }> = React.memo(({ visible }) => {
+  const map = useMap();
+  const [visibleBases, setVisibleBases] = useState<MilitaryBase[]>([]);
+
+  useEffect(() => {
+    if (!visible) { setVisibleBases([]); return; }
+
+    function updateVisible() {
+      const bounds = map.getBounds();
+      const pad = 2; // degrees of padding
+      const latMin = bounds.getSouth() - pad;
+      const latMax = bounds.getNorth() + pad;
+      const lngMin = bounds.getWest() - pad;
+      const lngMax = bounds.getEast() + pad;
+      const inView = MILITARY_BASES_EXPANDED.filter(
+        (b) => b.lat >= latMin && b.lat <= latMax && b.lon >= lngMin && b.lon <= lngMax
+      );
+      setVisibleBases(inView);
+    }
+
+    updateVisible();
+    map.on("moveend", updateVisible);
+    map.on("zoomend", updateVisible);
+    return () => {
+      map.off("moveend", updateVisible);
+      map.off("zoomend", updateVisible);
+    };
+  }, [map, visible]);
+
+  if (!visible) return null;
+
+  return (
+    <>
+      {visibleBases.map((base) => {
+        const opColor = OPERATOR_COLORS[base.type]?.color || '#888';
+        return (
+          <Marker
+            key={base.id}
+            position={[base.lat, base.lon]}
+            icon={getCachedBaseIcon(base)}
+          >
+            <Popup autoClose={true} closeOnClick={true} autoPanPadding={[20, 20] as any}>
+              <div style={{ fontFamily: 'monospace', fontSize: '12px', minWidth: '200px' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '6px', color: opColor }}>{base.name}</div>
+                <div style={{ color: '#666', marginBottom: '6px', paddingBottom: '6px', borderBottom: '1px solid #eee' }}>{base.country}</div>
+                <div style={{ display: 'grid', gap: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#888' }}>Branch:</span>
+                    <span style={{ fontWeight: 500 }}>{base.arm}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#888' }}>Operator:</span>
+                    <span style={{ color: opColor, fontWeight: 'bold' }}>{(OPERATOR_COLORS[base.type]?.label || base.type).toUpperCase()}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#888' }}>Status:</span>
+                    <span style={{ color: base.status === 'active' ? '#16a34a' : base.status === 'planned' ? '#ca8a04' : '#ea580c', fontWeight: 'bold' }}>{base.status.toUpperCase()}</span>
+                  </div>
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        );
+      })}
+    </>
+  );
+});
+
+MilitaryBasesLayer.displayName = "MilitaryBasesLayer";
+
 const Map2D: React.FC = () => {
   const { aircraft, missiles, isRunning, startSimulation, stopSimulation, systemStatus, engagementQueue, explosions } = useSimulation();
-  const { country, dataSource } = useSettings();
+  const { country, dataSource, weatherEnabled, disastersEnabled, intelligenceEnabled, convergenceEnabled } = useSettings();
   const countryConfig = useMemo(() => getCountryConfig(country), [country]);
   const RADAR_CENTER: [number, number] = useMemo(() => [countryConfig.radarCenter.lat, countryConfig.radarCenter.lng], [countryConfig]);
   const [selectedAircraft, setSelectedAircraft] = React.useState<string | null>(null);
+
+  // Intelligence stores
+  const { current: weatherData, gridPoints, fetchWeatherGrid, startPolling: startWeatherPolling, stopPolling: stopWeatherPolling } = useWeather();
+  const { earthquakes, naturalEvents, startPolling: startDisasterPolling, stopPolling: stopDisasterPolling } = useDisasters();
+  const { events: gdeltEvents, startPolling: startIntelPolling, stopPolling: stopIntelPolling } = useIntelligence();
+  const { zones: convergenceZones, startPolling: startConvergencePolling, stopPolling: stopConvergencePolling } = useConvergence();
+
+  // Layer visibility state
+  const [layers, setLayers] = React.useState<LayerVisibility>({
+    weather: true,
+    windArrows: true,
+    earthquakes: true,
+    naturalEvents: true,
+    conflictZones: true,
+    convergenceZones: true,
+    radarRanges: true,
+    missilePaths: true,
+    militaryBases: true,
+  });
+
+  const handleLayerToggle = useCallback((layer: keyof LayerVisibility) => {
+    setLayers((prev) => ({ ...prev, [layer]: !prev[layer] }));
+  }, []);
+
+  // Start/stop polling based on settings
+  useEffect(() => {
+    if (weatherEnabled) {
+      startWeatherPolling(countryConfig.radarCenter.lat, countryConfig.radarCenter.lng);
+      fetchWeatherGrid({
+        latMin: countryConfig.mapBounds.latMin,
+        latMax: countryConfig.mapBounds.latMax,
+        lngMin: countryConfig.mapBounds.lngMin,
+        lngMax: countryConfig.mapBounds.lngMax,
+      });
+    } else {
+      stopWeatherPolling();
+    }
+    return () => stopWeatherPolling();
+  }, [weatherEnabled, countryConfig]);
+
+  useEffect(() => {
+    if (disastersEnabled) startDisasterPolling();
+    else stopDisasterPolling();
+    return () => stopDisasterPolling();
+  }, [disastersEnabled]);
+
+  useEffect(() => {
+    if (intelligenceEnabled) startIntelPolling(countryConfig.radarCenter.lat, countryConfig.radarCenter.lng);
+    else stopIntelPolling();
+    return () => stopIntelPolling();
+  }, [intelligenceEnabled, countryConfig]);
+
+  useEffect(() => {
+    if (convergenceEnabled) startConvergencePolling();
+    else stopConvergencePolling();
+    return () => stopConvergencePolling();
+  }, [convergenceEnabled]);
 
   const handleSelect = useCallback((id: string) => setSelectedAircraft(id), []);
 
@@ -540,6 +768,8 @@ const Map2D: React.FC = () => {
           center={RADAR_CENTER}
           zoom={6}
           zoomControl={false}
+          preferCanvas={true}
+          closePopupOnClick={true}
           className="absolute inset-0 z-10"
           style={{ background: "#0a0a1a" }}
         >
@@ -573,7 +803,7 @@ const Map2D: React.FC = () => {
           <Marker position={RADAR_CENTER} icon={radarCenterIcon} />
 
           {/* Radar range rings */}
-          {RADAR_RANGES.map((range) => (
+          {layers.radarRanges && RADAR_RANGES.map((range) => (
             <Circle
               key={range.label}
               center={RADAR_CENTER}
@@ -589,18 +819,37 @@ const Map2D: React.FC = () => {
             />
           ))}
 
-          {/* Air base markers */}
-          {countryConfig.airBases.map((base) => (
-            <Marker
-              key={base.name}
-              position={[base.lat, base.lng]}
-              icon={L.divIcon({
-                className: 'air-base-icon',
-                html: `<div style="background:rgba(0,255,136,0.15);border:1px solid #00ff88;border-radius:4px;padding:2px 6px;font-size:10px;color:#00ff88;white-space:nowrap;font-family:monospace;">${base.name}</div>`,
-                iconAnchor: [40, 10],
-              })}
+          {/* Weather overlay */}
+          {weatherEnabled && (
+            <WeatherOverlay
+              gridPoints={gridPoints}
+              showWindArrows={layers.windArrows}
+              showWeather={layers.weather}
             />
-          ))}
+          )}
+
+          {/* Disaster markers */}
+          {disastersEnabled && (
+            <DisasterMarkers
+              earthquakes={earthquakes}
+              naturalEvents={naturalEvents}
+              showEarthquakes={layers.earthquakes}
+              showNaturalEvents={layers.naturalEvents}
+            />
+          )}
+
+          {/* Conflict zones + convergence */}
+          {(intelligenceEnabled || convergenceEnabled) && (
+            <ConflictZones
+              events={intelligenceEnabled ? gdeltEvents : []}
+              convergenceZones={convergenceEnabled ? convergenceZones : []}
+              showConflicts={layers.conflictZones}
+              showConvergence={layers.convergenceZones}
+            />
+          )}
+
+          {/* World military base markers (viewport-culled) */}
+          <MilitaryBasesLayer visible={layers.militaryBases} />
 
           {/* Aircraft markers */}
           {aircraft.map((ac) => (
@@ -608,7 +857,7 @@ const Map2D: React.FC = () => {
           ))}
 
           {/* Active missiles */}
-          {activeMissiles.map((missile) => (
+          {layers.missilePaths && activeMissiles.map((missile) => (
             <MissileTrack key={missile.id} missile={missile} />
           ))}
 
@@ -617,6 +866,38 @@ const Map2D: React.FC = () => {
             <ExplosionMarker key={explosion.id} explosion={explosion} />
           ))}
         </MapContainer>
+
+        {/* Layer Control Panel */}
+        <LayerControl
+          layers={layers}
+          onToggle={handleLayerToggle}
+          weatherEnabled={weatherEnabled}
+          disastersEnabled={disastersEnabled}
+          intelligenceEnabled={intelligenceEnabled}
+          convergenceEnabled={convergenceEnabled}
+        />
+
+        {/* Weather Status Badge */}
+        {weatherEnabled && weatherData && (
+          <div className="absolute top-4 left-[280px] z-[1000]">
+            <Card className="bg-gray-900/90 border-gray-700">
+              <CardContent className="p-2 flex items-center gap-2 text-xs">
+                <span className="text-cyan-400">{weatherData.weatherDescription}</span>
+                <span className="text-gray-400">|</span>
+                <span className="text-gray-300">{weatherData.temperature}°C</span>
+                <span className="text-gray-400">|</span>
+                <span className="text-blue-400">Wind {Math.round(weatherData.windSpeed)} km/h</span>
+                <span className="text-gray-400">|</span>
+                <span className={`font-mono ${
+                  weatherData.operationalImpact.radarEffectiveness >= 80 ? "text-green-400" :
+                  weatherData.operationalImpact.radarEffectiveness >= 60 ? "text-yellow-400" : "text-red-400"
+                }`}>
+                  Radar {weatherData.operationalImpact.radarEffectiveness}%
+                </span>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Status Panel */}
         <Card className="absolute bottom-4 left-4 z-[1000] bg-gray-900/90 border-gray-700 w-56">
