@@ -61,18 +61,24 @@ router.get("/earthquakes", async (req: Request, res: Response) => {
     if (!response.ok) throw new Error(`USGS returned ${response.status}`);
     const json = await response.json();
 
-    const earthquakes: Earthquake[] = (json.features || []).map((f: any) => ({
-      id: f.id,
-      magnitude: f.properties.mag,
-      place: f.properties.place,
-      time: f.properties.time,
-      lat: f.geometry.coordinates[1],
-      lng: f.geometry.coordinates[0],
-      depth: f.geometry.coordinates[2],
-      type: f.properties.type,
-      tsunami: f.properties.tsunami === 1,
-      url: f.properties.url,
-    }));
+    const earthquakes: Earthquake[] = (json.features || [])
+      .filter((f: any) =>
+        f?.properties?.mag != null &&
+        Array.isArray(f?.geometry?.coordinates) &&
+        f.geometry.coordinates.length >= 2
+      )
+      .map((f: any) => ({
+        id: f.id,
+        magnitude: f.properties.mag,
+        place: f.properties.place,
+        time: f.properties.time,
+        lat: f.geometry.coordinates[1],
+        lng: f.geometry.coordinates[0],
+        depth: f.geometry.coordinates[2] ?? 0,
+        type: f.properties.type,
+        tsunami: f.properties.tsunami === 1,
+        url: f.properties.url,
+      }));
 
     const result = { earthquakes, count: earthquakes.length, timestamp: Date.now() };
     setCache(cacheKey, result);
@@ -173,18 +179,25 @@ router.get("/summary", async (req: Request, res: Response) => {
 
     if (eqResponse.status === "fulfilled" && eqResponse.value.ok) {
       const json = await eqResponse.value.json();
-      earthquakes = (json.features || []).slice(0, 50).map((f: any) => ({
-        id: f.id,
-        magnitude: f.properties.mag,
-        place: f.properties.place,
-        time: f.properties.time,
-        lat: f.geometry.coordinates[1],
-        lng: f.geometry.coordinates[0],
-        depth: f.geometry.coordinates[2],
-        type: f.properties.type,
-        tsunami: f.properties.tsunami === 1,
-        url: f.properties.url,
-      }));
+      earthquakes = (json.features || [])
+        .filter((f: any) =>
+          f?.properties?.mag != null &&
+          Array.isArray(f?.geometry?.coordinates) &&
+          f.geometry.coordinates.length >= 2
+        )
+        .slice(0, 50)
+        .map((f: any) => ({
+          id: f.id,
+          magnitude: f.properties.mag,
+          place: f.properties.place,
+          time: f.properties.time,
+          lat: f.geometry.coordinates[1],
+          lng: f.geometry.coordinates[0],
+          depth: f.geometry.coordinates[2] ?? 0,
+          type: f.properties.type,
+          tsunami: f.properties.tsunami === 1,
+          url: f.properties.url,
+        }));
     }
 
     if (eonetResponse.status === "fulfilled" && eonetResponse.value.ok) {

@@ -68,19 +68,19 @@ router.get("/current", async (req: Request, res: Response) => {
 
     const current = json.current;
     const result = {
-      temperature: current.temperature_2m,
-      humidity: current.relative_humidity_2m,
-      apparentTemperature: current.apparent_temperature,
-      precipitation: current.precipitation,
-      rain: current.rain,
-      snowfall: current.snowfall,
-      cloudCover: current.cloud_cover,
-      windSpeed: current.wind_speed_10m,
-      windDirection: current.wind_direction_10m,
-      windGusts: current.wind_gusts_10m,
-      visibility: current.visibility,
-      weatherCode: current.weather_code,
-      weatherDescription: getWeatherDescription(current.weather_code),
+      temperature: current.temperature_2m ?? 0,
+      humidity: current.relative_humidity_2m ?? 0,
+      apparentTemperature: current.apparent_temperature ?? 0,
+      precipitation: current.precipitation ?? 0,
+      rain: current.rain ?? 0,
+      snowfall: current.snowfall ?? 0,
+      cloudCover: current.cloud_cover ?? 0,
+      windSpeed: current.wind_speed_10m ?? 0,
+      windDirection: current.wind_direction_10m ?? 0,
+      windGusts: current.wind_gusts_10m ?? 0,
+      visibility: current.visibility ?? 10000,
+      weatherCode: current.weather_code ?? 0,
+      weatherDescription: getWeatherDescription(current.weather_code ?? 0),
       timestamp: Date.now(),
       location: { lat, lng },
       // Operational impact assessment
@@ -103,10 +103,26 @@ router.get("/grid", async (req: Request, res: Response) => {
   const latMax = parseFloat(req.query.latMax as string);
   const lngMin = parseFloat(req.query.lngMin as string);
   const lngMax = parseFloat(req.query.lngMax as string);
-  const step = parseFloat(req.query.step as string) || 2; // degrees between grid points
+  const requestedStep = parseFloat(req.query.step as string) || 2; // degrees between grid points
 
   if (isNaN(latMin) || isNaN(latMax) || isNaN(lngMin) || isNaN(lngMax)) {
     return res.status(400).json({ error: "latMin, latMax, lngMin, lngMax are required" });
+  }
+
+  // Auto-grow step so the grid never exceeds the cap, instead of failing the request.
+  const MAX_POINTS = 25;
+  const buildGrid = (s: number) => {
+    const lats: number[] = [];
+    const lngs: number[] = [];
+    for (let lat = latMin; lat <= latMax; lat += s) lats.push(parseFloat(lat.toFixed(2)));
+    for (let lng = lngMin; lng <= lngMax; lng += s) lngs.push(parseFloat(lng.toFixed(2)));
+    return { lats, lngs };
+  };
+  let step = requestedStep;
+  let { lats, lngs } = buildGrid(step);
+  while (lats.length * lngs.length > MAX_POINTS && step < 30) {
+    step += 0.5;
+    ({ lats, lngs } = buildGrid(step));
   }
 
   const cacheKey = `weather-grid:${latMin.toFixed(1)}:${latMax.toFixed(1)}:${lngMin.toFixed(1)}:${lngMax.toFixed(1)}:${step}`;
@@ -114,16 +130,6 @@ router.get("/grid", async (req: Request, res: Response) => {
   if (cached) return res.json(cached);
 
   try {
-    // Build grid of lat/lng points
-    const lats: number[] = [];
-    const lngs: number[] = [];
-    for (let lat = latMin; lat <= latMax; lat += step) lats.push(parseFloat(lat.toFixed(2)));
-    for (let lng = lngMin; lng <= lngMax; lng += step) lngs.push(parseFloat(lng.toFixed(2)));
-
-    // Cap grid size
-    if (lats.length * lngs.length > 25) {
-      return res.status(400).json({ error: "Grid too large. Increase step or reduce bounds." });
-    }
 
     // Fetch weather for each grid point in parallel
     const points: any[] = [];
@@ -145,12 +151,12 @@ router.get("/grid", async (req: Request, res: Response) => {
           points.push({
             lat,
             lng,
-            windSpeed: c.wind_speed_10m,
-            windDirection: c.wind_direction_10m,
-            cloudCover: c.cloud_cover,
-            visibility: c.visibility,
-            weatherCode: c.weather_code,
-            precipitation: c.precipitation,
+            windSpeed: c.wind_speed_10m ?? 0,
+            windDirection: c.wind_direction_10m ?? 0,
+            cloudCover: c.cloud_cover ?? 0,
+            visibility: c.visibility ?? 10000,
+            weatherCode: c.weather_code ?? 0,
+            precipitation: c.precipitation ?? 0,
           });
         } catch {
           // Skip failed points

@@ -13,8 +13,9 @@ interface DisasterMarkersProps {
 
 // Earthquake icon based on magnitude
 function createEarthquakeIcon(eq: Earthquake): L.DivIcon {
-  const size = Math.max(16, eq.magnitude * 5);
-  const color = eq.magnitude >= 7 ? "#dc2626" : eq.magnitude >= 6 ? "#f97316" : eq.magnitude >= 5 ? "#eab308" : "#a3a3a3";
+  const mag = typeof eq.magnitude === "number" ? eq.magnitude : 0;
+  const size = Math.max(16, mag * 5);
+  const color = mag >= 7 ? "#dc2626" : mag >= 6 ? "#f97316" : mag >= 5 ? "#eab308" : "#a3a3a3";
 
   const html = `<div style="
     width:${size}px;height:${size}px;border-radius:50%;
@@ -24,7 +25,7 @@ function createEarthquakeIcon(eq: Earthquake): L.DivIcon {
     font-size:9px;font-weight:bold;color:${color};
     font-family:monospace;
     animation:pulse-ring 2s infinite;
-  ">${eq.magnitude.toFixed(1)}</div>`;
+  ">${mag.toFixed(1)}</div>`;
 
   return L.divIcon({
     className: "earthquake-icon",
@@ -89,11 +90,11 @@ const DisasterMarkers: React.FC<DisasterMarkersProps> = ({
               <Popup autoClose={true} closeOnClick={true}>
                 <div style={{ fontSize: 12, color: "#fff", minWidth: 160 }}>
                   <div style={{ fontWeight: "bold", color: "#ef4444", marginBottom: 4 }}>
-                    Earthquake M{eq.magnitude.toFixed(1)}
+                    Earthquake M{(eq.magnitude ?? 0).toFixed(1)}
                   </div>
                   <div>{eq.place}</div>
                   <div style={{ color: "#aaa", marginTop: 4 }}>
-                    Depth: {eq.depth.toFixed(1)} km
+                    Depth: {(eq.depth ?? 0).toFixed(1)} km
                   </div>
                   <div style={{ color: "#aaa" }}>
                     {new Date(eq.time).toLocaleDateString()}
@@ -109,9 +110,9 @@ const DisasterMarkers: React.FC<DisasterMarkersProps> = ({
             {/* Magnitude-based impact radius */}
             <Circle
               center={[eq.lat, eq.lng]}
-              radius={Math.pow(2, eq.magnitude) * 200}
+              radius={Math.pow(2, eq.magnitude ?? 0) * 200}
               pathOptions={{
-                color: eq.magnitude >= 6 ? "#ef4444" : "#f59e0b",
+                color: (eq.magnitude ?? 0) >= 6 ? "#ef4444" : "#f59e0b",
                 weight: 1,
                 opacity: 0.4,
                 fillOpacity: 0.08,
